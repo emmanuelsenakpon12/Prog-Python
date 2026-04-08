@@ -30,9 +30,11 @@ python exo3.py
 C'est la recherche gloutonne qui trouve la solution le plus rapidement. Elle n'a parcouru que 264 pas contre 774 pour A* standard. En se basant uniquement sur l'heuristique h, elle se dirige directement vers la sortie sans s'attarder à évaluer le coût réel du chemin parcouru.
 
 ## Question 2
-A* standard est le seul algorithme qui garantit un chemin optimal. Il évalue à la fois le coût réel parcouru et l'estimation vers le but, ce qui lui permet de ne jamais rater le meilleur chemin. En revanche il explore beaucoup de nœuds, ce qui le rend plus lent comme on le voit avec ses 774 pas.
-La recherche gloutonne est la plus rapide car elle explore très peu de nœuds. Cependant elle ne garantit pas un chemin optimal : elle peut passer par des cases coûteuses si elles semblent proches du but. Dans notre cas elle a obtenu le même coût qu'A* mais ce n'est pas toujours le cas.
-A* pondéré avec w=9 est un bon compromis. Il est bien plus rapide qu'A* standard (292 pas) tout en conservant le même coût optimal de 115. Plus w est grand, plus il se comporte comme le glouton. Mais dès que w dépasse 1, le chemin optimal n'est plus garanti.
+- A* standard est le seul algorithme qui garantit un chemin optimal. Il évalue à la fois le coût réel parcouru et l'estimation vers le but, ce qui lui permet de ne jamais rater le meilleur chemin. En revanche il explore beaucoup de nœuds, ce qui le rend plus lent comme on le voit avec ses 774 pas.
+  
+-La recherche gloutonne est la plus rapide car elle explore très peu de nœuds. Cependant elle ne garantit pas un chemin optimal : elle peut passer par des cases coûteuses si elles semblent proches du but. Dans notre cas elle a obtenu le même coût qu'A* mais ce n'est pas toujours le cas.
+
+-A* pondéré avec w=9 est un bon compromis. Il est bien plus rapide qu'A* standard (292 pas) tout en conservant le même coût optimal de 115. Plus w est grand, plus il se comporte comme le glouton. Mais dès que w dépasse 1, le chemin optimal n'est plus garanti.
 
 
 ## Question 3
