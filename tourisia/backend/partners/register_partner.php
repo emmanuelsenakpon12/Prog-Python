@@ -25,6 +25,17 @@ try {
         exit();
     }
 
+    // Récupérer les infos de l'utilisateur pour utiliser ses identifiants
+    $userStmt = $pdo->prepare("SELECT email, password FROM users WHERE id = :user_id");
+    $userStmt->execute([':user_id' => $data['user_id']]);
+    $user = $userStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$user) {
+        http_response_code(404);
+        echo json_encode(["message" => "Utilisateur non trouvé."]);
+        exit();
+    }
+
     $sql = "INSERT INTO partners (
         user_id, business_name, activity_type, description, logo, 
         address, city, country, business_phone, business_email, 
@@ -46,10 +57,6 @@ try {
     )";
 
     $stmt = $pdo->prepare($sql);
-
-    // On hash le mot de passe du responsable s'il est fourni
-    $manager_password = !empty($data['manager_password']) ?
-        password_hash($data['manager_password'], PASSWORD_DEFAULT) : null;
 
     $stmt->execute([
         ':user_id' => $data['user_id'],
@@ -73,8 +80,8 @@ try {
         ':manager_phone' => $data['manager_phone'] ?? null,
         ':manager_email' => $data['manager_email'] ?? null,
         ':manager_role' => $data['manager_role'] ?? null,
-        ':manager_login' => $data['manager_login'] ?? null,
-        ':manager_password' => $manager_password,
+        ':manager_login' => $user['email'], // Utilise l'email de l'utilisateur
+        ':manager_password' => $user['password'], // Utilise le mot de passe hashé de l'utilisateur
         ':account_holder' => $data['account_holder'] ?? null,
         ':bank_name' => $data['bank_name'] ?? null,
         ':iban' => $data['iban'] ?? null,

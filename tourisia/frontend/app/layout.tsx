@@ -35,7 +35,7 @@ export default function RootLayout({
 
   return (
     <html lang="fr" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body suppressHydrationWarning className={`${inter.variable} font-sans antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange={false}>
           <GoogleOAuthProvider clientId={googleClientId}>
             {children}

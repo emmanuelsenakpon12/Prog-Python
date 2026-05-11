@@ -5,7 +5,7 @@ loadDotEnv(__DIR__ . '/../../frontend/.env.local');
 
 return [
     'api_key' => getenv('GEMINI_API_KEY'),
-    'model' => 'gemini-flash-latest',
+    'model' => getenv('GEMINI_MODEL') ?: 'gemini-2.0-flash',
     'system_prompt' => "Tu es l'Assistant Voyage intelligent de Tourisia. 
     Ton but est d'aider les utilisateurs à trouver les meilleures offres (hôtels, vols, activités) sur la plateforme.
     Tu as accès à la liste des offres actuelles de Tourisia. 

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls \"C:/xampp/htdocs/tourisia/backend/\" 2>&1)",
+      "Read(//c/xampp/htdocs/tourisia/backend/**)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

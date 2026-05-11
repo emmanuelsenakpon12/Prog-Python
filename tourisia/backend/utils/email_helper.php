@@ -17,16 +17,13 @@ function sendWelcomeEmail($email, $fullname)
     $mail = new PHPMailer(true);
 
     try {
-        // --- CONFIGURATION SMTP ---
-        // Pour les tests, utilisez Mailtrap (https://mailtrap.io)
         $mail->isSMTP();
-        $mail->Host = 'sandbox.smtp.mailtrap.io'; // À REMPLACER PAR VOTRE SERVEUR SMTP
-        $mail->SMTPAuth = true;
-        $mail->Username = 'VOTRE_USERNAME_MAILTRAP';   // À REMPLACER
-        $mail->Password = 'VOTRE_PASSWORD_MAILTRAP';   // À REMPLACER
+        $mail->Host       = getenv('SMTP_HOST') ?: 'sandbox.smtp.mailtrap.io';
+        $mail->SMTPAuth   = true;
+        $mail->Username   = getenv('SMTP_USER') ?: '';
+        $mail->Password   = getenv('SMTP_PASS') ?: '';
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = 587;
-        // ---------------------------
+        $mail->Port       = (int)(getenv('SMTP_PORT') ?: 587);
 
         // Destinataires
         $mail->setFrom('no-reply@tourisia.com', 'Tourisia');

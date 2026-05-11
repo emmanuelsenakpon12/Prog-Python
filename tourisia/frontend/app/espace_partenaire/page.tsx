@@ -65,6 +65,16 @@ export default function PartnerDashboard() {
   const [showOfferModal, setShowOfferModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSubmittingOffer, setIsSubmittingOffer] = useState(false);
+  const [offerSubmitError, setOfferSubmitError] = useState("");
+
+  // Reservations states
+  const [partnerReservations, setPartnerReservations] = useState<any[]>([]);
+  const [loadingReservations, setLoadingReservations] = useState(false);
+  const [updatingReservation, setUpdatingReservation] = useState<number | null>(null);
+  const [reservationFilter, setReservationFilter] = useState<"all" | "pending" | "confirmed" | "cancelled">("all");
+  const [reservationView, setReservationView] = useState<"list" | "calendar">("list");
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [newOffer, setNewOffer] = useState({
     type: "herbergement",
     title: "",
@@ -102,6 +112,7 @@ export default function PartnerDashboard() {
     setPartner(data);
     setFormData(data);
     fetchOffers(data.id);
+    fetchPartnerReservations(data.id);
   }, []);
 
   // Real-time Polling for Partner Messaging
@@ -217,6 +228,44 @@ export default function PartnerDashboard() {
       toast.error("Erreur lors de l'envoi du message.");
     } finally {
       setSendingMessage(false);
+    }
+  };
+
+  const fetchPartnerReservations = async (partnerId: number) => {
+    setLoadingReservations(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}offers/get_partner_reservations.php?partner_id=${partnerId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPartnerReservations(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Erreur chargement réservations", err);
+    } finally {
+      setLoadingReservations(false);
+    }
+  };
+
+  const handleUpdateReservationStatus = async (reservationId: number, status: "confirmed" | "cancelled") => {
+    if (!partner) return;
+    setUpdatingReservation(reservationId);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}offers/update_reservation_status.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reservation_id: reservationId, partner_id: partner.id, status }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(status === "confirmed" ? "Réservation confirmée ✅" : "Réservation annulée ❌");
+        fetchPartnerReservations(partner.id);
+      } else {
+        toast.error(data.message || "Erreur lors de la mise à jour.");
+      }
+    } catch {
+      toast.error("Erreur serveur.");
+    } finally {
+      setUpdatingReservation(null);
     }
   };
 
@@ -489,32 +538,32 @@ export default function PartnerDashboard() {
   const handleSubmitOffer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newOffer.title || !newOffer.price || !newOffer.location) {
-      toast.error("Veuillez remplir les champs obligatoires.");
+      setOfferSubmitError("Veuillez remplir les champs obligatoires (titre, prix, lieu).");
       return;
     }
 
-    setIsLoading(true);
+    setOfferSubmitError("");
+    setIsSubmittingOffer(true);
     try {
       const url = editingId
         ? `${process.env.NEXT_PUBLIC_API_URL}offers/update_offer.php`
         : `${process.env.NEXT_PUBLIC_API_URL}offers/add_offer.php`;
 
-      const res = await fetch(url,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...newOffer,
-            partner_id: partner.id,
-            id: editingId // for update
-          }),
-        },
-      );
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...newOffer,
+          partner_id: partner.id,
+          id: editingId,
+        }),
+      });
       const data = await res.json();
       if (data.success) {
         toast.success(editingId ? "Offre mise à jour !" : "Offre publiée !");
         setShowOfferModal(false);
         setEditingId(null);
+        setOfferSubmitError("");
         setNewOffer({
           type: "herbergement",
           title: "",
@@ -528,12 +577,12 @@ export default function PartnerDashboard() {
         });
         fetchOffers(partner.id);
       } else {
-        toast.error(data.message || "Erreur lors de la publication.");
+        setOfferSubmitError(data.message || "Erreur lors de la publication.");
       }
     } catch (err) {
-      toast.error("Erreur serveur.");
+      setOfferSubmitError("Impossible de contacter le serveur. Vérifiez votre connexion.");
     } finally {
-      setIsLoading(false);
+      setIsSubmittingOffer(false);
     }
   };
 
@@ -649,9 +698,12 @@ export default function PartnerDashboard() {
 
   if (!partner) return null;
 
+  const pendingCount = partnerReservations.filter(r => r.status === "pending").length;
+
   const navItems = [
     { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
     { id: "publications", label: "Publications", icon: Package },
+    { id: "reservations", label: "Réservations", icon: Calendar, badge: pendingCount },
     ...(partner.selected_plan !== "Gratuit" ? [{ id: "messagerie", label: "Messagerie", icon: MessageSquare }] : []),
     { id: "settings", label: "Paramètres", icon: Settings },
   ];
@@ -705,6 +757,11 @@ export default function PartnerDashboard() {
                     : "text-muted-foreground hover:text-foreground"
                     }`}
                 >
+                  {'badge' in item && (item as any).badge > 0 && (
+                    <span className="absolute top-2.5 right-2 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                      {(item as any).badge}
+                    </span>
+                  )}
                   <item.icon className="h-4 w-4" />
                   {item.label}
                   {activeTab === item.id && (
@@ -1073,6 +1130,252 @@ export default function PartnerDashboard() {
             </div>
           )}
 
+          {/* ══════ RÉSERVATIONS PARTENAIRE ══════ */}
+          {activeTab === "reservations" && (
+            <div className="animate-in fade-in duration-500 space-y-6">
+              {/* En-tête */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground">Réservations</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Gérez les réservations effectuées par les voyageurs sur vos offres.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex rounded-xl border border-border overflow-hidden text-xs font-bold">
+                    <button
+                      onClick={() => setReservationView("list")}
+                      className={`px-3 py-2 transition-colors ${reservationView === "list" ? "bg-[#2563eb] text-white" : "hover:bg-muted text-muted-foreground"}`}
+                    >
+                      Liste
+                    </button>
+                    <button
+                      onClick={() => setReservationView("calendar")}
+                      className={`px-3 py-2 transition-colors ${reservationView === "calendar" ? "bg-[#2563eb] text-white" : "hover:bg-muted text-muted-foreground"}`}
+                    >
+                      Calendrier
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => fetchPartnerReservations(partner.id)}
+                    className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-medium hover:bg-muted transition-colors"
+                  >
+                    {loadingReservations ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                    Actualiser
+                  </button>
+                </div>
+              </div>
+
+              {/* Filtres cliquables */}
+              {!loadingReservations && partnerReservations.length > 0 && (
+                <div className="flex gap-2 flex-wrap">
+                  {([
+                    { label: "Toutes", value: "all", activeColor: "bg-[#2563eb] text-white", inactiveColor: "bg-muted text-muted-foreground" },
+                    { label: "En attente", value: "pending", activeColor: "bg-amber-500 text-white", inactiveColor: "bg-amber-100 text-amber-700" },
+                    { label: "Confirmées", value: "confirmed", activeColor: "bg-green-500 text-white", inactiveColor: "bg-green-100 text-green-700" },
+                    { label: "Annulées", value: "cancelled", activeColor: "bg-red-500 text-white", inactiveColor: "bg-red-100 text-red-600" },
+                  ]).map(({ label, value, activeColor, inactiveColor }) => {
+                    const count = value === "all" ? partnerReservations.length : partnerReservations.filter((r: any) => r.status === value).length;
+                    return (
+                      <button
+                        key={value}
+                        onClick={() => setReservationFilter(value as any)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${reservationFilter === value ? activeColor : inactiveColor}`}
+                      >
+                        {count} {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {loadingReservations ? (
+                <div className="flex h-64 items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#2563eb]" />
+                </div>
+              ) : partnerReservations.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-24 text-center rounded-2xl border border-dashed border-border bg-card">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-muted-foreground mb-4">
+                    <Calendar className="h-8 w-8" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground">Aucune réservation</h3>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-xs">
+                    Les voyageurs qui réservent vos offres apparaîtront ici.
+                  </p>
+                </div>
+              ) : reservationView === "calendar" ? (
+                /* ── Vue Calendrier ── */
+                (() => {
+                  const year = calendarMonth.getFullYear();
+                  const month = calendarMonth.getMonth();
+                  const firstDay = new Date(year, month, 1).getDay();
+                  const daysInMonth = new Date(year, month + 1, 0).getDate();
+                  const offset = firstDay === 0 ? 6 : firstDay - 1;
+                  const activeRes = partnerReservations.filter((r: any) => r.status !== "cancelled" && r.date_arrivee && r.date_depart);
+                  const monthNames = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+
+                  const getDayHits = (day: number) => {
+                    const dateStr = `${year}-${String(month + 1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+                    return activeRes.filter((r: any) => dateStr >= r.date_arrivee && dateStr <= r.date_depart);
+                  };
+
+                  return (
+                    <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <button onClick={() => setCalendarMonth(new Date(year, month - 1, 1))} className="h-8 w-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors">
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <h3 className="text-base font-bold text-foreground">{monthNames[month]} {year}</h3>
+                        <button onClick={() => setCalendarMonth(new Date(year, month + 1, 1))} className="h-8 w-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors">
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-7 gap-1">
+                        {["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"].map((d) => (
+                          <div key={d} className="text-center text-[10px] font-bold text-muted-foreground py-1">{d}</div>
+                        ))}
+                        {Array.from({ length: offset }).map((_, i) => <div key={`e${i}`} />)}
+                        {Array.from({ length: daysInMonth }).map((_, i) => {
+                          const day = i + 1;
+                          const hits = getDayHits(day);
+                          const isBooked = hits.length > 0;
+                          const isToday = new Date().getDate() === day && new Date().getMonth() === month && new Date().getFullYear() === year;
+                          const tooltip = isBooked ? hits.map((h: any) => `${h.user_name}${h.nombre_personnes ? ` (${h.nombre_personnes} pers.)` : ""}`).join(", ") : "";
+                          return (
+                            <div
+                              key={day}
+                              title={tooltip}
+                              className={`aspect-square flex flex-col items-center justify-center rounded-lg text-xs font-medium transition-colors cursor-default ${isBooked ? "bg-[#2563eb] text-white" : "hover:bg-muted text-foreground"} ${isToday && !isBooked ? "ring-2 ring-[#2563eb] ring-offset-1" : ""}`}
+                            >
+                              {day}
+                              {isBooked && (
+                                <span className="text-[8px] text-white/80 leading-none mt-0.5 truncate w-full text-center px-0.5">
+                                  {hits[0].user_name.split(" ")[0]}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center gap-4 pt-2 border-t border-border">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground"><div className="h-3 w-3 rounded-sm bg-[#2563eb]" /> Réservé</div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground"><div className="h-3 w-3 rounded-sm border-2 border-[#2563eb]" /> Aujourd'hui</div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground"><div className="h-3 w-3 rounded-sm bg-muted border border-border" /> Libre</div>
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : (
+                /* ── Vue Liste ── */
+                <div className="space-y-4">
+                  {partnerReservations
+                    .filter((r: any) => reservationFilter === "all" || r.status === reservationFilter)
+                    .map((res: any) => {
+                      const isPending = res.status === "pending";
+                      const isConfirmed = res.status === "confirmed";
+                      const isUpdating = updatingReservation === res.id;
+                      return (
+                        <div
+                          key={res.id}
+                          className={`rounded-2xl border bg-card p-5 space-y-4 transition-all ${isPending ? "border-amber-200 dark:border-amber-900/50 bg-amber-50/30 dark:bg-amber-950/10" : "border-border"}`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-foreground truncate">{res.offer_title}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">{res.location} · {res.type}</p>
+                            </div>
+                            <span className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-bold ${isPending ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" : isConfirmed ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" : "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400"}`}>
+                              {isPending ? "En attente" : isConfirmed ? "Confirmée" : "Annulée"}
+                            </span>
+                          </div>
+
+                          {res.date_arrivee && res.date_depart && (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-xl border border-border bg-muted/30 p-3">
+                              <div>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-0.5">Arrivée</p>
+                                <p className="text-xs font-bold text-foreground">{new Date(res.date_arrivee + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-0.5">Départ</p>
+                                <p className="text-xs font-bold text-foreground">{new Date(res.date_depart + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-0.5">Durée</p>
+                                <p className="text-xs font-bold text-foreground">{res.nombre_nuits || "—"} nuit{res.nombre_nuits > 1 ? "s" : ""}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-0.5">Prix total</p>
+                                <p className="text-xs font-bold text-[#2563eb]">{res.prix_total ? Number(res.prix_total).toLocaleString() : Number(res.price).toLocaleString()} {res.currency || "CFA"}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground border-t border-border pt-3">
+                            <span className="flex items-center gap-1 font-medium text-foreground">
+                              <Users className="h-3 w-3 text-[#2563eb]" />
+                              {res.user_name}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              {res.user_email}
+                            </span>
+                            {res.user_phone && (
+                              <span className="flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                {res.user_phone}
+                              </span>
+                            )}
+                            {(res.nombre_adultes || res.nombre_personnes) && (
+                              <span className="flex items-center gap-1">
+                                <Users className="h-3 w-3" />
+                                {res.nombre_adultes
+                                  ? `${res.nombre_adultes} adulte${res.nombre_adultes > 1 ? "s" : ""}${res.nombre_enfants > 0 ? `, ${res.nombre_enfants} enfant${res.nombre_enfants > 1 ? "s" : ""}` : ""}`
+                                  : `${res.nombre_personnes} pers.`}
+                              </span>
+                            )}
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              Réservé le {new Date(res.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                            </span>
+                          </div>
+
+                          {isPending && (
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                onClick={() => handleUpdateReservationStatus(res.id, "confirmed")}
+                                disabled={isUpdating}
+                                className="flex items-center gap-1.5 rounded-xl bg-green-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-600 transition-all disabled:opacity-50"
+                              >
+                                {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                                Valider
+                              </button>
+                              <button
+                                onClick={() => handleUpdateReservationStatus(res.id, "cancelled")}
+                                disabled={isUpdating}
+                                className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-100 transition-all disabled:opacity-50 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-400"
+                              >
+                                {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                                Refuser
+                              </button>
+                            </div>
+                          )}
+                          {!isPending && (
+                            <div className="text-xs text-muted-foreground pt-1">
+                              {isConfirmed ? "✅ Réservation validée" : "❌ Réservation refusée/annulée"}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  {partnerReservations.filter((r: any) => reservationFilter === "all" || r.status === reservationFilter).length === 0 && (
+                    <div className="py-12 text-center text-sm text-muted-foreground">
+                      Aucune réservation pour ce filtre.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {activeTab === "messagerie" && (
             <div className="animate-in fade-in duration-500">
               <div className="flex items-center justify-between mb-6">
@@ -1871,26 +2174,33 @@ export default function PartnerDashboard() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-4 pt-4 sticky bottom-0 bg-white border-t border-border mt-8 pt-6">
-                      <button
-                        type="button"
-                        onClick={() => setShowOfferModal(false)}
-                        className="flex-1 rounded-xl border border-border py-4 text-sm font-bold hover:bg-muted transition-all"
-                      >
-                        Annuler
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isLoading || isUploading}
-                        className="flex-[2] rounded-xl bg-[#2563eb] py-4 text-sm font-bold text-white hover:bg-[#1d4ed8] shadow-lg shadow-[#2563eb]/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                      >
-                        {isLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Check className="h-4 w-4" />
-                        )}
-                        Publier l'offre
-                      </button>
+                    <div className="sticky bottom-0 bg-white border-t border-border mt-8 pt-6 space-y-3">
+                      {offerSubmitError && (
+                        <p className="text-sm text-red-500 text-center font-medium px-2">
+                          {offerSubmitError}
+                        </p>
+                      )}
+                      <div className="flex gap-4">
+                        <button
+                          type="button"
+                          onClick={() => { setShowOfferModal(false); setOfferSubmitError(""); }}
+                          className="flex-1 rounded-xl border border-border py-4 text-sm font-bold hover:bg-muted transition-all"
+                        >
+                          Annuler
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isSubmittingOffer || isUploading}
+                          className="flex-[2] rounded-xl bg-[#2563eb] py-4 text-sm font-bold text-white hover:bg-[#1d4ed8] shadow-lg shadow-[#2563eb]/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                          {isSubmittingOffer ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Check className="h-4 w-4" />
+                          )}
+                          {isSubmittingOffer ? "Publication en cours..." : (editingId ? "Mettre à jour" : "Publier l'offre")}
+                        </button>
+                      </div>
                     </div>
                   </form>
                 </div>

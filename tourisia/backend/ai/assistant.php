@@ -26,7 +26,7 @@ try {
     }
 
     // 1. Récupérer toutes les offres pour le contexte
-    $stmt = $pdo->query("SELECT title, type, location, price, currency, description FROM offers");
+    $stmt = $pdo->query("SELECT title, type, location, price, description FROM offers");
     $offers = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $offersContext = json_encode($offers, JSON_UNESCAPED_UNICODE);
 

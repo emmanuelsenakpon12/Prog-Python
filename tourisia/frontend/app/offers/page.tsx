@@ -22,9 +22,11 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { toast } from "sonner";
 import { AddToItineraryButton } from "@/components/itinerary/add-to-itinerary-button";
+import { ReservationCalendar } from "@/components/ReservationCalendar";
+import { format } from "date-fns";
+import { DateRange } from "react-day-picker";
 
 // Categories are now standard
 const categories = [
@@ -60,6 +62,76 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
+function OfferImageCarousel({
+  images,
+  getFileUrl,
+  title,
+}: {
+  images: string[];
+  getFileUrl: (p: string) => string;
+  title: string;
+}) {
+  const [currentImg, setCurrentImg] = useState(0);
+  const [hovered, setHovered] = useState(false);
+
+  const prev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentImg((i) => (i === 0 ? images.length - 1 : i - 1));
+  };
+  const next = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentImg((i) => (i === images.length - 1 ? 0 : i + 1));
+  };
+
+  const src =
+    images && images.length > 0
+      ? getFileUrl(images[currentImg])
+      : "/images/placeholder.jpg";
+
+  return (
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={title}
+        className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 ${hovered ? "scale-110" : "scale-100"}`}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      />
+      {images && images.length > 1 && (
+        <>
+          <button
+            onClick={prev}
+            onMouseEnter={() => setHovered(true)}
+            className={`absolute left-1.5 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white transition-opacity hover:bg-black/70 ${hovered ? "opacity-100" : "opacity-0"}`}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            onClick={next}
+            onMouseEnter={() => setHovered(true)}
+            className={`absolute right-1.5 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white transition-opacity hover:bg-black/70 ${hovered ? "opacity-100" : "opacity-0"}`}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          <div className="absolute bottom-2 left-0 right-0 z-10 flex justify-center gap-1">
+            {images.map((_, i) => (
+              <button
+                key={i}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImg(i);
+                }}
+                className={`rounded-full transition-all ${i === currentImg ? "h-1.5 w-4 bg-white" : "h-1.5 w-1.5 bg-white/60"}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
 function OffersPageContent() {
   const router = useRouter();
   const [offers, setOffers] = useState<any[]>([]);
@@ -76,6 +148,15 @@ function OffersPageContent() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [userPartnerId, setUserPartnerId] = useState<number | null>(null);
+  const [showInlineCalendar, setShowInlineCalendar] = useState(false);
+  const [showInlineRecap, setShowInlineRecap] = useState(false);
+  const [inlineRange, setInlineRange] = useState<DateRange | undefined>(undefined);
+  const [inlineNights, setInlineNights] = useState(0);
+  const [inlineTotal, setInlineTotal] = useState(0);
+  const [inlineAdultes, setInlineAdultes] = useState(1);
+  const [inlineEnfants, setInlineEnfants] = useState(0);
+  const [isConfirmingBooking, setIsConfirmingBooking] = useState(false);
+  const [detailCurrentImg, setDetailCurrentImg] = useState(0);
 
   const searchParams = useSearchParams();
 
@@ -86,6 +167,11 @@ function OffersPageContent() {
     if (urlLocation) setSearchQuery(urlLocation);
     if (urlType) setActiveCategory(urlType);
   }, [searchParams]);
+
+  // Reset detail gallery index when a new offer is opened
+  useEffect(() => {
+    setDetailCurrentImg(0);
+  }, [selectedOffer?.id]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -174,9 +260,58 @@ function OffersPageContent() {
     }
   };
 
-  const handleBooking = async (offerId: number) => {
-    toast.info("La réservation directe est temporairement désactivée. Veuillez contacter le partenaire par message.");
-    return;
+  const resetInlineBooking = () => {
+    setShowInlineCalendar(false);
+    setShowInlineRecap(false);
+    setInlineRange(undefined);
+    setInlineNights(0);
+    setInlineTotal(0);
+    setInlineAdultes(1);
+    setInlineEnfants(0);
+  };
+
+  const handleBooking = () => {
+    if (!user) {
+      toast.error("Veuillez vous connecter pour effectuer une réservation.");
+      router.push("/login");
+      return;
+    }
+    resetInlineBooking();
+    setShowInlineCalendar(true);
+  };
+
+  const handleConfirmBooking = async () => {
+    if (!user || !selectedOffer || !inlineRange?.from || !inlineRange?.to) return;
+    setIsConfirmingBooking(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}offers/add_reservation.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          offer_id: selectedOffer.id,
+          date_arrivee: format(inlineRange.from, "yyyy-MM-dd"),
+          date_depart: format(inlineRange.to, "yyyy-MM-dd"),
+          nombre_nuits: inlineNights,
+          nombre_adultes: inlineAdultes,
+          nombre_enfants: inlineEnfants,
+          prix_total: inlineTotal,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message || "Réservation effectuée !");
+        resetInlineBooking();
+        setShowDetailModal(false); resetInlineBooking();
+        fetchUserReservations(user.id);
+      } else {
+        toast.error(data.message || "Erreur lors de la réservation.");
+      }
+    } catch {
+      toast.error("Erreur de connexion au serveur.");
+    } finally {
+      setIsConfirmingBooking(false);
+    }
   };
 
   const filtered = offers
@@ -327,21 +462,18 @@ function OffersPageContent() {
                   className="group overflow-hidden rounded-xl border border-border bg-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col"
                 >
                   <div className="relative aspect-[4/3] overflow-hidden">
-                    <Image
-                      src={offer.images && offer.images.length > 0 ? getFileUrl(offer.images[0]) : "/images/placeholder.jpg"}
-                      alt={offer.title}
-                      fill
-                      className="object-cover transition-transform duration-500 group-hover:scale-110"
+                    <OfferImageCarousel
+                      images={offer.images || []}
+                      getFileUrl={getFileUrl}
+                      title={offer.title}
                     />
-                    <span
-                      className="absolute top-2 left-2 rounded-md bg-[#2563eb]/90 backdrop-blur-sm px-1.5 py-0.5 text-[10px] sm:top-3 sm:left-3 sm:px-2.5 sm:py-1 sm:text-xs font-semibold text-white capitalize shadow-sm"
-                    >
+                    <span className="absolute top-2 left-2 z-10 rounded-md bg-[#2563eb]/90 backdrop-blur-sm px-1.5 py-0.5 text-[10px] sm:top-3 sm:left-3 sm:px-2.5 sm:py-1 sm:text-xs font-semibold text-white capitalize shadow-sm pointer-events-none">
                       {offer.type}
                     </span>
                     {offer.partner_id !== userPartnerId && (
                       <button
-                        onClick={() => toggleFavorite(offer.id)}
-                        className={`absolute top-2 right-2 flex h-7 w-7 sm:h-8 sm:w-8 sm:top-3 sm:right-3 items-center justify-center rounded-full backdrop-blur-sm transition-colors z-10 ${favorites.includes(offer.id)
+                        onClick={(e) => { e.stopPropagation(); toggleFavorite(offer.id); }}
+                        className={`absolute top-2 right-2 flex h-7 w-7 sm:h-8 sm:w-8 sm:top-3 sm:right-3 items-center justify-center rounded-full backdrop-blur-sm transition-colors z-20 ${favorites.includes(offer.id)
                           ? "bg-red-500 text-white"
                           : "bg-card/60 text-foreground hover:bg-card/80"
                           }`}
@@ -531,29 +663,56 @@ function OffersPageContent() {
             </div>
 
             <div className="p-4 sm:p-8 space-y-6 sm:space-y-8">
-              {/* Media Gallery (Preview) */}
+              {/* Media Gallery */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-start">
                 <div className="space-y-4">
+                  {/* Grande image avec flèches + compteur */}
                   <div className="relative aspect-[16/9] rounded-xl sm:rounded-2xl overflow-hidden shadow-lg border border-border group">
                     <img
-                      src={selectedOffer.images && selectedOffer.images.length > 0 ? getFileUrl(selectedOffer.images[0]) : "/images/placeholder.jpg"}
+                      src={
+                        selectedOffer.images && selectedOffer.images.length > 0
+                          ? getFileUrl(selectedOffer.images[detailCurrentImg])
+                          : "/images/placeholder.jpg"
+                      }
                       alt={selectedOffer.title}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-all duration-300"
                     />
-                    <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 bg-black/60 backdrop-blur-sm text-white text-[9px] sm:text-[10px] font-bold px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full uppercase tracking-wider">
-                      {selectedOffer.images?.length || 0} Photos
+                    {/* Compteur */}
+                    <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm text-white text-[9px] sm:text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
+                      {detailCurrentImg + 1} / {selectedOffer.images?.length || 1}
                     </div>
+                    {/* Flèches */}
+                    {selectedOffer.images && selectedOffer.images.length > 1 && (
+                      <>
+                        <button
+                          onClick={() => setDetailCurrentImg((i) => i === 0 ? selectedOffer.images.length - 1 : i - 1)}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setDetailCurrentImg((i) => i === selectedOffer.images.length - 1 ? 0 : i + 1)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
                   </div>
 
-                  {/* Thumbnail row */}
+                  {/* Miniatures cliquables */}
                   {selectedOffer.images && selectedOffer.images.length > 1 && (
-                    <div className="grid grid-cols-4 gap-2 sm:gap-3">
-                      {selectedOffer.images.slice(1, 5).map((img: string, idx: number) => (
-                        <div key={idx} className="aspect-square rounded-lg sm:rounded-xl overflow-hidden border border-border ring-2 ring-transparent hover:ring-[#2563eb] transition-all cursor-pointer">
+                    <div className="grid grid-cols-5 gap-2 sm:gap-2.5">
+                      {selectedOffer.images.slice(0, 5).map((img: string, idx: number) => (
+                        <div
+                          key={idx}
+                          onClick={() => setDetailCurrentImg(idx)}
+                          className={`aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${detailCurrentImg === idx ? "border-[#2563eb] ring-2 ring-[#2563eb]/30" : "border-border hover:border-[#2563eb]/50"}`}
+                        >
                           <img
                             src={getFileUrl(img)}
                             className="w-full h-full object-cover"
-                            alt="thumb"
+                            alt={`Photo ${idx + 1}`}
                           />
                         </div>
                       ))}
@@ -620,45 +779,172 @@ function OffersPageContent() {
                     </div>
                   </div>
 
-                  <div className="p-5 sm:p-6 rounded-xl sm:rounded-2xl bg-[#2563eb] text-white space-y-4 shadow-xl shadow-[#2563eb]/20">
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-white/20 flex items-center justify-center">
-                        <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] sm:text-xs text-white/70 font-bold uppercase">Réservation</p>
-                        <p className="text-xs sm:text-sm font-bold">Planifiez votre visite</p>
-                      </div>
+                  {selectedOffer.partner_id === userPartnerId ? (
+                    <div className="p-5 sm:p-6 rounded-xl sm:rounded-2xl bg-[#2563eb] text-white shadow-xl shadow-[#2563eb]/20 flex items-center justify-center text-[12px] sm:text-sm font-bold border border-white/40 text-white/80 cursor-not-allowed">
+                      Ceci est votre annonce
                     </div>
-                    {selectedOffer.partner_id === userPartnerId ? (
-                      <div className="w-full py-3 sm:py-4 rounded-lg sm:rounded-xl text-[12px] sm:text-sm font-bold bg-transparent border border-white/40 text-white/80 cursor-not-allowed flex items-center justify-center">
-                        Ceci est votre annonce
+                  ) : !showInlineCalendar ? (
+                    /* ── Bouton Réserver ── */
+                    <div className="p-5 sm:p-6 rounded-xl sm:rounded-2xl bg-[#2563eb] text-white space-y-4 shadow-xl shadow-[#2563eb]/20">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-white/20 flex items-center justify-center">
+                          <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] sm:text-xs text-white/70 font-bold uppercase">Réservation</p>
+                          <p className="text-xs sm:text-sm font-bold">Planifiez votre visite</p>
+                        </div>
                       </div>
-                    ) : (
-                      <>
+                      <button
+                        onClick={handleBooking}
+                        className="w-full py-3 sm:py-4 rounded-lg sm:rounded-xl text-[12px] sm:text-sm font-bold transition-all flex items-center justify-center gap-2 group bg-white text-[#2563eb] hover:bg-white/90"
+                      >
+                        Réserver
+                      </button>
+                      {selectedOffer.selected_plan !== "Gratuit" && (
                         <button
-                          onClick={() => handleBooking(selectedOffer.id)}
-                          className="w-full py-3 sm:py-4 rounded-lg sm:rounded-xl text-[12px] sm:text-sm font-bold transition-all flex items-center justify-center gap-2 group bg-gray-100 text-gray-400 cursor-not-allowed"
+                          onClick={() => router.push(`/profile?tab=messagerie&partner_id=${selectedOffer.partner_id}`)}
+                          className="w-full py-3 sm:py-4 rounded-lg sm:rounded-xl text-[12px] sm:text-sm font-bold transition-all flex items-center justify-center gap-2 border border-white/30 bg-white/10 hover:bg-white/20 text-white"
                         >
-                          Réserver
+                          <MessageSquare className="h-4 w-4" />
+                          Discuter avec le partenaire
                         </button>
+                      )}
+                      <p className="text-[9px] sm:text-[10px] text-center text-white/60">
+                        Votre réservation sera en attente de confirmation du partenaire.
+                      </p>
+                    </div>
+                  ) : (
+                    /* ── Calendrier inline ── */
+                    <div className="rounded-xl sm:rounded-2xl border border-border bg-card p-4 sm:p-5 space-y-4">
+                      {/* En-tête avec bouton retour */}
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={resetInlineBooking}
+                          className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Retour
+                        </button>
+                        <span className="text-sm font-bold text-foreground">
+                          {showInlineRecap ? "Récapitulatif" : "Choisissez vos dates"}
+                        </span>
+                      </div>
 
-                        {selectedOffer.selected_plan !== "Gratuit" && (
-                          <button
-                            onClick={() => router.push(`/profile?tab=messagerie&partner_id=${selectedOffer.partner_id}`)}
-                            className="w-full py-3 sm:py-4 rounded-lg sm:rounded-xl text-[12px] sm:text-sm font-bold transition-all flex items-center justify-center gap-2 border border-white/30 bg-white/10 hover:bg-white/20 text-white"
-                          >
-                            <MessageSquare className="h-4 w-4" />
-                            Discuter avec le partenaire
-                          </button>
-                        )}
+                      {!showInlineRecap ? (
+                        <>
+                          <ReservationCalendar
+                            offerId={selectedOffer.id}
+                            pricePerNight={Number(selectedOffer.price)}
+                            currency={selectedOffer.currency || "CFA"}
+                            onRangeChange={(range, nights, total) => {
+                              setInlineRange(range);
+                              setInlineNights(nights);
+                              setInlineTotal(total);
+                            }}
+                          />
 
-                        <p className="text-[9px] sm:text-[10px] text-center text-white/60">
-                          En cliquant sur le bouton, vous enregistrez votre réservation auprès du partenaire.
-                        </p>
-                      </>
-                    )}
-                  </div>
+                          {inlineNights > 0 && (
+                            <>
+                              {/* Adultes / Enfants */}
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2.5">
+                                  <span className="text-xs font-medium text-foreground">Adultes</span>
+                                  <div className="flex items-center gap-2">
+                                    <button onClick={() => setInlineAdultes(a => Math.max(1, a - 1))} className="h-6 w-6 rounded-full border border-border flex items-center justify-center text-sm hover:bg-muted">−</button>
+                                    <span className="text-xs font-bold w-4 text-center">{inlineAdultes}</span>
+                                    <button onClick={() => setInlineAdultes(a => Math.min(20, a + 1))} className="h-6 w-6 rounded-full border border-border flex items-center justify-center text-sm hover:bg-muted">+</button>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2.5">
+                                  <span className="text-xs font-medium text-foreground">Enfants</span>
+                                  <div className="flex items-center gap-2">
+                                    <button onClick={() => setInlineEnfants(e => Math.max(0, e - 1))} className="h-6 w-6 rounded-full border border-border flex items-center justify-center text-sm hover:bg-muted">−</button>
+                                    <span className="text-xs font-bold w-4 text-center">{inlineEnfants}</span>
+                                    <button onClick={() => setInlineEnfants(e => Math.min(10, e + 1))} className="h-6 w-6 rounded-full border border-border flex items-center justify-center text-sm hover:bg-muted">+</button>
+                                  </div>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => setShowInlineRecap(true)}
+                                className="w-full py-2.5 rounded-xl text-sm font-bold bg-[#2563eb] text-white hover:bg-[#1d4ed8] transition-all"
+                              >
+                                Continuer
+                              </button>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        /* Récapitulatif */
+                        <div className="space-y-3">
+                          <div className="rounded-xl border border-border overflow-hidden">
+                            <div className="grid grid-cols-2 divide-x divide-border">
+                              <div className="px-3 py-2.5">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-0.5">Arrivée</p>
+                                <p className="text-xs font-bold text-foreground">{inlineRange?.from ? format(inlineRange.from, "dd/MM/yyyy") : "—"}</p>
+                              </div>
+                              <div className="px-3 py-2.5">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-0.5">Départ</p>
+                                <p className="text-xs font-bold text-foreground">{inlineRange?.to ? format(inlineRange.to, "dd/MM/yyyy") : "—"}</p>
+                              </div>
+                            </div>
+                            <div className="border-t border-border grid grid-cols-2 divide-x divide-border">
+                              <div className="px-3 py-2.5">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-0.5">Durée</p>
+                                <p className="text-xs font-bold text-foreground">{inlineNights} nuit{inlineNights > 1 ? "s" : ""}</p>
+                              </div>
+                              <div className="px-3 py-2.5">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-0.5">Voyageurs</p>
+                                <p className="text-xs font-bold text-foreground">{inlineAdultes} adulte{inlineAdultes > 1 ? "s" : ""}{inlineEnfants > 0 ? `, ${inlineEnfants} enfant${inlineEnfants > 1 ? "s" : ""}` : ""}</p>
+                              </div>
+                            </div>
+                            <div className="border-t border-border px-3 py-2.5 bg-[#2563eb]/5 flex items-center justify-between">
+                              <span className="text-xs text-muted-foreground">{Number(selectedOffer.price).toLocaleString()} {selectedOffer.currency} × {inlineNights} nuit{inlineNights > 1 ? "s" : ""}</span>
+                              <span className="text-sm font-bold text-[#2563eb]">{inlineTotal.toLocaleString()} {selectedOffer.currency || "CFA"}</span>
+                            </div>
+                          </div>
+
+                          {/* Politique d'annulation */}
+                          {inlineRange?.from && (
+                            <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3 space-y-1.5">
+                              <p className="text-xs font-bold text-amber-800 dark:text-amber-400 flex items-center gap-1.5">
+                                <span>ℹ️</span> Politique d'annulation
+                              </p>
+                              <p className="text-xs text-amber-700 dark:text-amber-500">
+                                Annulation <span className="font-bold">GRATUITE</span> jusqu'au :{" "}
+                                <span className="font-bold">
+                                  {new Date(inlineRange.from.getTime() - 72 * 3600000).toLocaleDateString("fr-FR", {
+                                    weekday: "long", day: "numeric", month: "long", year: "numeric",
+                                  })}
+                                </span>
+                              </p>
+                              <p className="text-[10px] text-amber-600 dark:text-amber-600">
+                                ⚠️ Passé ce délai, l'annulation ne sera plus possible.
+                              </p>
+                            </div>
+                          )}
+
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setShowInlineRecap(false)}
+                              disabled={isConfirmingBooking}
+                              className="flex-1 py-2.5 rounded-xl text-xs font-bold border border-border hover:bg-muted transition-colors disabled:opacity-50"
+                            >
+                              Modifier
+                            </button>
+                            <button
+                              onClick={handleConfirmBooking}
+                              disabled={isConfirmingBooking}
+                              className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-[#2563eb] text-white hover:bg-[#1d4ed8] transition-all disabled:opacity-60 flex items-center justify-center gap-1.5"
+                            >
+                              {isConfirmingBooking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirmer"}
+                            </button>
+                          </div>
+                          <p className="text-[9px] text-center text-muted-foreground">En attente de confirmation du partenaire.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
