@@ -107,7 +107,6 @@ runStep($pdo, "Table <code>offers</code>", function($pdo) {
         type        VARCHAR(100),
         location    VARCHAR(255),
         price       DECIMAL(10,2) DEFAULT 0.00,
-        currency    VARCHAR(10)   DEFAULT 'CFA',
         description TEXT,
         images      JSON,
         video       VARCHAR(255),

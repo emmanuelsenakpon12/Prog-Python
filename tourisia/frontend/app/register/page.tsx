@@ -36,13 +36,10 @@ export default function RegisterPage() {
       const data = await response.json();
 
       if (response.ok) {
-        const fromPartner = new URLSearchParams(window.location.search).get("from") === "partner";
         toast.success(
-          fromPartner
-            ? "Compte créé ! Complétez maintenant votre profil partenaire."
-            : "Inscription réussie ! Vous pouvez maintenant vous connecter.",
+          "Inscription réussie ! Vous pouvez maintenant vous connecter.",
         );
-        window.location.href = fromPartner ? "/devenir_partenaire" : "/login";
+        window.location.href = "/login";
       } else {
         toast.error(data.message || "Erreur lors de l'inscription.");
       }
@@ -72,9 +69,8 @@ export default function RegisterPage() {
 
       if (response.ok) {
         localStorage.setItem("user", JSON.stringify(data.user));
-        const fromPartner = new URLSearchParams(window.location.search).get("from") === "partner";
-        toast.success(fromPartner ? "Compte créé ! Complétez votre profil partenaire." : "Inscription et connexion Google réussies !");
-        window.location.href = fromPartner ? "/devenir_partenaire" : "/";
+        toast.success("Inscription et connexion Google réussies !");
+        window.location.href = "/";
       } else {
         toast.error(data.message || "Erreur lors de l'inscription Google.");
       }

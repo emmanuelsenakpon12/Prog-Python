@@ -184,7 +184,6 @@ const settingsSections = [
 const tabs = [
   { id: "overview", label: "Aperçu" },
   { id: "itineraries", label: "Mes Carnets" },
-  { id: "reservations", label: "Mes Réservations" },
   { id: "wishlist", label: "Favoris" },
   { id: "reviews", label: "Avis" },
   { id: "messagerie", label: "Messagerie" },
@@ -251,16 +250,8 @@ function ProfileContent() {
   const [selectedPartnerId, setSelectedPartnerId] = useState<number | null>(null);
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [avatarError, setAvatarError] = useState(false);
-  const [bannerError, setBannerError] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
-
-  // Reset image errors quand le profil est rechargé
-  useEffect(() => {
-    if (user?.avatar) setAvatarError(false);
-    if (user?.cover_image) setBannerError(false);
-  }, [user?.avatar, user?.cover_image]);
 
   useEffect(() => {
     fetchUserData();
@@ -559,26 +550,6 @@ function ProfileContent() {
     }
   };
 
-  const handleCancelReservation = async (reservationId: number) => {
-    if (!user) return;
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}offers/cancel_reservation.php`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: user.id, reservation_id: reservationId }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success(data.message || "Réservation annulée.");
-        fetchReservations(user.id);
-      } else {
-        toast.error(data.message || "Impossible d'annuler la réservation.");
-      }
-    } catch {
-      toast.error("Erreur de connexion au serveur.");
-    }
-  };
-
   const removeFromFavorites = async (offerId: number) => {
     if (!user) return;
     try {
@@ -745,16 +716,13 @@ function ProfileContent() {
         <section className="relative">
           {/* Image de couverture */}
           <div className="relative h-48 sm:h-64 lg:h-80">
-            {user.cover_image && !bannerError ? (
-              <img
-                src={user.cover_image.startsWith('http') ? user.cover_image : `http://localhost:8000${user.cover_image}`}
-                alt="Bannière de profil"
-                className="absolute inset-0 w-full h-full object-cover"
-                onError={() => setBannerError(true)}
-              />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#3b82f6]" />
-            )}
+            <Image
+              src={user.cover_image || "/images/profile-cover.jpg"}
+              alt="Bannière de profil"
+              fill
+              className="object-cover"
+              priority
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-transparent to-foreground/20" />
 
             <input
@@ -779,13 +747,13 @@ function ProfileContent() {
             <div className="relative flex flex-col items-start gap-5 pb-6 sm:flex-row sm:items-end sm:gap-6">
               {/* Avatar */}
               <div className="relative -mt-16 sm:-mt-20">
-                <div className="relative flex h-28 w-28 items-center justify-center rounded-2xl border-4 border-card bg-[#2563eb] shadow-lg sm:h-36 sm:w-36 overflow-hidden">
-                  {user.avatar && !avatarError ? (
-                    <img
-                      src={user.avatar.startsWith('http') ? user.avatar : `http://localhost:8000${user.avatar}`}
+                <div className="flex h-28 w-28 items-center justify-center rounded-2xl border-4 border-card bg-[#2563eb] shadow-lg sm:h-36 sm:w-36 overflow-hidden">
+                  {user.avatar ? (
+                    <Image
+                      src={user.avatar}
                       alt={user.fullname}
-                      className="w-full h-full object-cover"
-                      onError={() => setAvatarError(true)}
+                      fill
+                      className="object-cover"
                     />
                   ) : (
                     <span className="text-3xl font-bold text-white sm:text-4xl text-center uppercase">
@@ -1131,13 +1099,7 @@ function ProfileContent() {
                   </div>
                 ) : (
                   <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {reservations.map((res) => {
-                      const canAnnuler = !res.date_arrivee ||
-                        (new Date(res.date_arrivee + "T00:00:00").getTime() - Date.now()) / 3600000 > 72;
-                      const deadlineDate = res.date_arrivee
-                        ? new Date(new Date(res.date_arrivee + "T00:00:00").getTime() - 72 * 3600000)
-                        : null;
-                      return (
+                    {reservations.map((res) => (
                       <div
                         key={res.id}
                         onClick={() => {
@@ -1178,59 +1140,18 @@ function ProfileContent() {
                             <MapPin className="h-3 w-3" />
                             {res.location}
                           </div>
-                          {res.date_arrivee && res.date_depart && (
-                            <div className="mt-2 flex items-center gap-1.5 text-xs text-foreground">
-                              <Calendar className="h-3 w-3 text-[#2563eb]" />
-                              <span>{new Date(res.date_arrivee + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>
-                              <span className="text-muted-foreground">→</span>
-                              <span>{new Date(res.date_depart + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}</span>
-                            </div>
-                          )}
-                          {/* Deadline annulation */}
-                          {deadlineDate && res.status !== 'cancelled' && (
-                            <div className="mt-2 flex items-center gap-1 text-[10px] text-amber-600">
-                              <span>⏰</span>
-                              <span>
-                                Annulation libre jusqu'au{" "}
-                                <span className="font-bold">
-                                  {deadlineDate.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
-                                </span>
-                              </span>
-                            </div>
-                          )}
-
                           <div className="mt-2 flex items-center justify-between border-t border-border pt-3">
                             <div className="flex items-baseline gap-1">
-                              {res.prix_total ? (
-                                <>
-                                  <span className="text-lg font-bold text-[#2563eb]">{Number(res.prix_total).toLocaleString()}</span>
-                                  <span className="text-xs font-medium text-muted-foreground uppercase">{res.currency}</span>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="text-lg font-bold text-[#2563eb]">{res.price}</span>
-                                  <span className="text-xs font-medium text-muted-foreground uppercase">{res.currency}</span>
-                                </>
-                              )}
+                              <span className="text-lg font-bold text-[#2563eb]">{res.price}</span>
+                              <span className="text-xs font-medium text-muted-foreground uppercase">{res.currency}</span>
                             </div>
-                            {res.status !== "cancelled" && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (canAnnuler) handleCancelReservation(res.id);
-                                }}
-                                disabled={!canAnnuler}
-                                title={!canAnnuler ? "Annulation impossible moins de 72h avant l'arrivée" : "Annuler cette réservation"}
-                                className={`text-[10px] font-bold transition-colors ${canAnnuler ? "text-destructive hover:underline" : "text-muted-foreground cursor-not-allowed opacity-50"}`}
-                              >
-                                {canAnnuler ? "Annuler" : "🔒 Non annulable"}
-                              </button>
-                            )}
+                            <button className="text-[10px] sm:text-xs font-bold text-[#2563eb] hover:underline">
+                              Voir détails
+                            </button>
                           </div>
                         </div>
                       </div>
-                      );
-                    })}
+                    ))}
                   </div>
                 )}
               </div>

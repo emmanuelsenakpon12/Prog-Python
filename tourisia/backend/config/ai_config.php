@@ -1,11 +1,17 @@
 <?php
 // backend/config/ai_config.php
 require_once __DIR__ . '/../utils/dotenv.php';
-loadDotEnv(__DIR__ . '/../../frontend/.env.local');
+
+// Charger d'abord une .env côté backend (ne pas exposer la clé dans le frontend)
+loadDotEnv(__DIR__ . '/../.env');
+// Si non trouvée, fallback (développement) vers le .env.local du frontend
+if (!getenv('GEMINI_API_KEY')) {
+    loadDotEnv(__DIR__ . '/../../frontend/.env.local');
+}
 
 return [
     'api_key' => getenv('GEMINI_API_KEY'),
-    'model' => getenv('GEMINI_MODEL') ?: 'gemini-2.0-flash',
+    'model' => 'gemini-flash-latest',
     'system_prompt' => "Tu es l'Assistant Voyage intelligent de Tourisia. 
     Ton but est d'aider les utilisateurs à trouver les meilleures offres (hôtels, vols, activités) sur la plateforme.
     Tu as accès à la liste des offres actuelles de Tourisia. 

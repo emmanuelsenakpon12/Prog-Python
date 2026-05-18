@@ -1,8 +1,4 @@
 <?php
-ini_set('display_errors', 0);
-ini_set('display_startup_errors', 0);
-error_reporting(0);
-
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
@@ -19,15 +15,11 @@ try {
 
     $partnerId = isset($_GET['partner_id']) ? $_GET['partner_id'] : null;
 
-    $type = isset($_GET['type']) ? trim($_GET['type']) : null;
-
     if ($partnerId) {
         $stmt = $pdo->prepare("SELECT o.*, p.selected_plan FROM offers o JOIN partners p ON o.partner_id = p.id WHERE o.partner_id = ? ORDER BY o.created_at DESC");
         $stmt->execute([$partnerId]);
-    } elseif ($type) {
-        $stmt = $pdo->prepare("SELECT o.*, p.selected_plan FROM offers o JOIN partners p ON o.partner_id = p.id WHERE o.type = ? ORDER BY o.created_at DESC");
-        $stmt->execute([$type]);
     } else {
+        // Fetch all offers for the public page
         $stmt = $pdo->prepare("SELECT o.*, p.selected_plan FROM offers o JOIN partners p ON o.partner_id = p.id ORDER BY o.created_at DESC");
         $stmt->execute();
     }

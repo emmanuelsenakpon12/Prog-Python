@@ -26,7 +26,7 @@ try {
     }
 
     // 1. Récupérer toutes les offres pour le contexte
-    $stmt = $pdo->query("SELECT title, type, location, price, description FROM offers");
+    $stmt = $pdo->query("SELECT title, type, location, price, currency, description FROM offers");
     $offers = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $offersContext = json_encode($offers, JSON_UNESCAPED_UNICODE);
 
@@ -34,6 +34,12 @@ try {
     $apiKey = $ai_config['api_key'];
     $model = $ai_config['model'];
     $systemPrompt = $ai_config['system_prompt'];
+
+    if (empty($apiKey)) {
+        http_response_code(500);
+        echo json_encode(["success" => false, "response" => "Clé API Gemini manquante. Ajoutez GEMINI_API_KEY dans backend/.env ou en variable d'environnement."]);
+        exit();
+    }
 
     $url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey";
 

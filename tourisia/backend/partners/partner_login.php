@@ -19,47 +19,32 @@ try {
 
     $data = json_decode(file_get_contents("php://input"), true);
 
-    if (empty($data['email']) || empty($data['password'])) {
+    if (empty($data['login']) || empty($data['password'])) {
         http_response_code(400);
-        echo json_encode(["message" => "Email et mot de passe requis."]);
+        echo json_encode(["message" => "Identifiants manquants."]);
         exit();
     }
 
-    $email = $data['email'];
+    $login = $data['login'];
     $password = $data['password'];
 
-    // Vérifier les identifiants utilisateur
-    $query = "SELECT id, fullname, email, password FROM users WHERE email = :email LIMIT 1";
+    // Dans notre table, manager_login est le login et manager_password est le hash
+    $query = "SELECT * FROM partners WHERE manager_login = :login LIMIT 1";
     $stmt = $pdo->prepare($query);
-    $stmt->execute([':email' => $email]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt->execute([':login' => $login]);
+    $partner = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$user || !password_verify($password, $user['password'])) {
+    if ($partner && password_verify($password, $partner['manager_password'])) {
+        unset($partner['manager_password']); // Sécurité
+        http_response_code(200);
+        echo json_encode([
+            "message" => "Connexion partenaire réussie.",
+            "partner" => $partner
+        ]);
+    } else {
         http_response_code(401);
-        echo json_encode(["message" => "Email ou mot de passe incorrect."]);
-        exit();
+        echo json_encode(["message" => "Login ou mot de passe incorrect."]);
     }
-
-    // Vérifier si cet utilisateur a un compte partenaire
-    $query_partner = "SELECT * FROM partners WHERE user_id = :user_id LIMIT 1";
-    $stmt_partner = $pdo->prepare($query_partner);
-    $stmt_partner->execute([':user_id' => $user['id']]);
-    $partner = $stmt_partner->fetch(PDO::FETCH_ASSOC);
-
-    if (!$partner) {
-        http_response_code(403);
-        echo json_encode(["message" => "Aucun compte partenaire trouvé pour cet utilisateur."]);
-        exit();
-    }
-
-    // Retourner les données du partenaire
-    unset($partner['manager_password']); // Sécurité
-    http_response_code(200);
-    echo json_encode([
-        "message" => "Connexion partenaire réussie.",
-        "partner" => $partner,
-        "user" => $user
-    ]);
 
 } catch (Exception $e) {
     http_response_code(500);
