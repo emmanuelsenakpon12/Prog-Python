@@ -38,7 +38,7 @@ const FerrisWheelIcon = () => (
 
 const navTabs = [
   { label: "Hébergements", href: "/offers?type=herbergement", icon: <Home className="h-5 w-5" />, path: "/offers", type: "herbergement" },
-  { label: "Transport",    href: "/offers?type=transport",    icon: <Car className="h-5 w-5" />,  path: "/offers", type: "transport" },
+  { label: "Transport",    href: "/transport",                 icon: <Car className="h-5 w-5" />,  path: "/transport", type: null },
   { label: "Activités",   href: "/offers?type=activite",     icon: <FerrisWheelIcon />,           path: "/offers", type: "activite" },
   { label: "Circuits",    href: "/circuits",                  icon: <Map className="h-5 w-5" />,  path: "/circuits", type: null },
   { label: "Vols",        href: "/vols",                      icon: <Plane className="h-5 w-5" />,path: "/vols",     type: null },
@@ -83,7 +83,7 @@ export function Navbar() {
     }
   };
 
-  const handlePartnerLogin = async (e: React.FormEvent) => {
+  const handlePartnerLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoggingIn(true);
     try {
