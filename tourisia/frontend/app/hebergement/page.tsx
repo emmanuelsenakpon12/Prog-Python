@@ -115,7 +115,7 @@ export default function HebergementPage() {
       <Navbar />
       <main>
         {/* ── Hero ── */}
-        <section className="relative overflow-hidden bg-[#2563eb]">
+        <section className="relative bg-[#2563eb]" style={{ overflow: "visible" }}>
           <div
             className="absolute inset-0 opacity-40"
             style={{

@@ -43,7 +43,7 @@ export default function CircuitsPage() {
       <Navbar />
       <main>
         {/* Hero */}
-        <section className="relative overflow-hidden bg-[#2563eb]">
+        <section className="relative bg-[#2563eb]" style={{ overflow: "visible" }}>
           <div className="absolute inset-0 opacity-40" style={{
             backgroundImage: "url('https://images.unsplash.com/photo-1549144511-f099e773c147?q=80&w=2069&auto=format&fit=crop')",
             backgroundSize: "cover",

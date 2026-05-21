@@ -96,7 +96,7 @@ export default function VolsPage() {
       <Navbar />
       <main>
         {/* Hero */}
-        <section className="relative overflow-hidden bg-[#2563eb]">
+        <section className="relative bg-[#2563eb]" style={{ overflow: "visible" }}>
           <div className="absolute inset-0 opacity-40" style={{
             backgroundImage: "url('https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=2074&auto=format&fit=crop')",
             backgroundSize: "cover",
