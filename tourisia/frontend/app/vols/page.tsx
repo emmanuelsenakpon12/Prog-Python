@@ -5,7 +5,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import {
   Plane, MapPin, Calendar, Users, ChevronDown, Plus, Minus,
-  Search, Loader2, ArrowRight, Star,
+  Search, Loader2, ArrowRight,
 } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import { format } from "date-fns";
@@ -89,11 +89,6 @@ export default function VolsPage() {
     return `${from} — ${to}`;
   };
 
-  const getFileUrl = (path: string) => {
-    if (!path) return "";
-    return `${process.env.NEXT_PUBLIC_API_URL}${path}`;
-  };
-
   const totalPassagers = adults + children;
 
   return (
@@ -102,7 +97,7 @@ export default function VolsPage() {
       <main>
         {/* Hero */}
         <section className="relative overflow-hidden bg-[#2563eb]">
-          <div className="absolute inset-0 opacity-20" style={{
+          <div className="absolute inset-0 opacity-40" style={{
             backgroundImage: "url('https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=2074&auto=format&fit=crop')",
             backgroundSize: "cover",
             backgroundPosition: "center",
@@ -191,17 +186,25 @@ export default function VolsPage() {
                         className="absolute left-0 top-[calc(100%+8px)] z-[9999] rounded-2xl border border-border bg-card shadow-2xl p-4"
                         style={{ minWidth: 600 }}
                       >
-                        <DayPicker
-                          mode={aller_retour ? "range" : "single"}
-                          selected={aller_retour ? dateRange : dateRange?.from}
-                          onSelect={(val: any) => {
-                            if (aller_retour) setDateRange(val);
-                            else setDateRange(val ? { from: val } : undefined);
-                          }}
-                          numberOfMonths={2}
-                          locale={fr}
-                          disabled={{ before: new Date() }}
-                        />
+                        {aller_retour ? (
+                          <DayPicker
+                            mode="range"
+                            selected={dateRange}
+                            onSelect={(val) => setDateRange(val)}
+                            numberOfMonths={2}
+                            locale={fr}
+                            disabled={{ before: new Date() }}
+                          />
+                        ) : (
+                          <DayPicker
+                            mode="single"
+                            selected={dateRange?.from}
+                            onSelect={(val) => setDateRange(val ? { from: val } : undefined)}
+                            numberOfMonths={2}
+                            locale={fr}
+                            disabled={{ before: new Date() }}
+                          />
+                        )}
                         <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-border">
                           <button
                             onClick={() => setDateRange(undefined)}

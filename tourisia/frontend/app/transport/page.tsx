@@ -151,13 +151,21 @@ export default function TransportPage() {
       <Navbar />
       <main>
         {/* ── Hero ── */}
-        <section
-          className="relative"
-          style={{ overflow: "visible" }}
-        >
-          {/* Fond bleu foncé */}
-          <div className="bg-[#003580] py-10 lg:py-14">
-            <div className="mx-auto max-w-7xl px-4 lg:px-8">
+        <section className="relative" style={{ overflow: "visible" }}>
+          {/* Fond + image de bannière */}
+          <div className="relative bg-[#2563eb] py-12 lg:py-16" style={{ overflow: "visible" }}>
+            {/* Image d'arrière-plan */}
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: "url('https://images.unsplash.com/photo-1485291571150-772bcfc10da5?q=80&w=2070&auto=format&fit=crop')",
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                opacity: 0.40,
+              }}
+            />
+
+            <div className="relative mx-auto max-w-7xl px-4 lg:px-8">
               {/* Titre */}
               <div className="text-center mb-8">
                 <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 mb-4">
@@ -181,7 +189,7 @@ export default function TransportPage() {
           </div>
 
           {/* Vague décorative */}
-          <div className="h-8 bg-[#003580]" style={{ clipPath: "ellipse(60% 100% at 50% 0%)" }} />
+          <div className="h-8 bg-[#2563eb]" style={{ clipPath: "ellipse(60% 100% at 50% 0%)" }} />
         </section>
 
         {/* ── Résultats ── */}

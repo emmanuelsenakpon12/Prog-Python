@@ -37,11 +37,11 @@ const FerrisWheelIcon = () => (
 );
 
 const navTabs = [
-  { label: "Hébergements", href: "/offers?type=herbergement", icon: <Home className="h-5 w-5" />, path: "/offers", type: "herbergement" },
-  { label: "Transport",    href: "/transport",                 icon: <Car className="h-5 w-5" />,  path: "/transport", type: null },
-  { label: "Activités",   href: "/offers?type=activite",     icon: <FerrisWheelIcon />,           path: "/offers", type: "activite" },
-  { label: "Circuits",    href: "/circuits",                  icon: <Map className="h-5 w-5" />,  path: "/circuits", type: null },
-  { label: "Vols",        href: "/vols",                      icon: <Plane className="h-5 w-5" />,path: "/vols",     type: null },
+  { label: "Hébergements", href: "/hebergement", icon: <Home className="h-5 w-5" />, path: "/hebergement", type: null },
+  { label: "Transport",    href: "/transport",    icon: <Car className="h-5 w-5" />,  path: "/transport",   type: null },
+  { label: "Activités",   href: "/activite",     icon: <FerrisWheelIcon />,           path: "/activite",    type: null },
+  { label: "Circuits",    href: "/circuits",     icon: <Map className="h-5 w-5" />,  path: "/circuits",    type: null },
+  { label: "Vols",        href: "/vols",         icon: <Plane className="h-5 w-5" />,path: "/vols",        type: null },
 ];
 
 export function Navbar() {
@@ -83,7 +83,7 @@ export function Navbar() {
     }
   };
 
-  const handlePartnerLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handlePartnerLogin = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoggingIn(true);
     try {

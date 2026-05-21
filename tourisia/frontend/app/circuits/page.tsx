@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useState, useEffect, Suspense } from "react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { Loader2, MapPin, Star, Heart } from "lucide-react";
+import { Loader2, MapPin } from "lucide-react";
 import { toast } from "sonner";
 
 const CircuitsMap = dynamic(() => import("@/components/CircuitsMap"), { ssr: false });
@@ -44,7 +44,7 @@ export default function CircuitsPage() {
       <main>
         {/* Hero */}
         <section className="relative overflow-hidden bg-[#2563eb]">
-          <div className="absolute inset-0 opacity-20" style={{
+          <div className="absolute inset-0 opacity-40" style={{
             backgroundImage: "url('https://images.unsplash.com/photo-1549144511-f099e773c147?q=80&w=2069&auto=format&fit=crop')",
             backgroundSize: "cover",
             backgroundPosition: "center",
