@@ -87,7 +87,7 @@ function VehicleCard({ offer }: { offer: any }) {
           </div>
           <a
             href={`/offers?type=transport`}
-            className="flex items-center gap-1.5 rounded-xl bg-[#003580] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#002a66] transition-colors"
+            className="flex items-center gap-1.5 rounded-xl bg-[#2563eb] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#1d4ed8] transition-colors"
           >
             Réserver
             <ChevronRight className="h-4 w-4" />
@@ -235,7 +235,7 @@ export default function TransportPage() {
               </p>
               <button
                 onClick={fetchAll}
-                className="mt-6 rounded-xl bg-[#003580] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#002a66] transition-colors"
+                className="mt-6 rounded-xl bg-[#2563eb] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#1d4ed8] transition-colors"
               >
                 Voir tous les véhicules
               </button>

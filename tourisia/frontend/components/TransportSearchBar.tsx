@@ -116,7 +116,7 @@ export function TransportSearchBar({ onSearch, isLoading = false }: Props) {
       {/* ── Barre principale ── */}
       <div
         className="flex flex-col md:flex-row items-stretch w-full bg-white rounded-lg overflow-visible"
-        style={{ border: "3px solid #F5A623", borderRadius: 8 }}
+        style={{ border: "3px solid white", borderRadius: 8 }}
       >
 
         {/* ── 1. LIEU ── */}
@@ -125,7 +125,7 @@ export function TransportSearchBar({ onSearch, isLoading = false }: Props) {
           ref={locationRef}
           style={{ overflow: "visible" }}
         >
-          <Search className="h-5 w-5 shrink-0 text-[#F5A623]" />
+          <Search className="h-5 w-5 shrink-0 text-[#2563eb]" />
           <div className="flex flex-col w-full min-w-0">
             <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
               Lieu de prise en charge
@@ -160,10 +160,10 @@ export function TransportSearchBar({ onSearch, isLoading = false }: Props) {
                   onMouseDown={() => { setLieu(city); setShowSuggestions(false); }}
                   onMouseEnter={() => setActiveIndex(i)}
                   className={`flex items-center gap-2 w-full px-4 py-2.5 text-sm text-left transition-colors ${
-                    i === activeIndex ? "bg-[#F5A623]/10 text-[#F5A623] font-semibold" : "text-gray-700 hover:bg-gray-50"
+                    i === activeIndex ? "bg-[#2563eb]/10 text-[#2563eb] font-semibold" : "text-gray-700 hover:bg-gray-50"
                   }`}
                 >
-                  <MapPin className="h-3.5 w-3.5 shrink-0 text-[#F5A623]" />
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-[#2563eb]" />
                   {city}
                 </button>
               ))}
@@ -172,7 +172,7 @@ export function TransportSearchBar({ onSearch, isLoading = false }: Props) {
         </div>
 
         {/* ── Séparateur ── */}
-        <div className="hidden md:block w-px bg-[#F5A623]/30 self-stretch" />
+        <div className="hidden md:block w-px bg-gray-200 self-stretch" />
 
         {/* ── 2. DATE DE PRISE EN CHARGE ── */}
         <div
@@ -181,7 +181,7 @@ export function TransportSearchBar({ onSearch, isLoading = false }: Props) {
           style={{ overflow: "visible" }}
           onClick={() => { closeAll(); setShowCalPrise(v => !v); }}
         >
-          <Calendar className="h-5 w-5 shrink-0 text-[#F5A623]" />
+          <Calendar className="h-5 w-5 shrink-0 text-[#2563eb]" />
           <div className="flex flex-col">
             <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Date de prise en charge</span>
             <span className={`text-sm font-semibold ${datePrise ? "text-gray-800" : "text-gray-400"}`}>
@@ -206,7 +206,7 @@ export function TransportSearchBar({ onSearch, isLoading = false }: Props) {
         </div>
 
         {/* ── Séparateur ── */}
-        <div className="hidden md:block w-px bg-[#F5A623]/30 self-stretch" />
+        <div className="hidden md:block w-px bg-gray-200 self-stretch" />
 
         {/* ── 3. HEURE DE PRISE EN CHARGE ── */}
         <div
@@ -215,7 +215,7 @@ export function TransportSearchBar({ onSearch, isLoading = false }: Props) {
           style={{ overflow: "visible" }}
           onClick={() => { closeAll(); setShowTimePrise(v => !v); }}
         >
-          <Clock className="h-5 w-5 shrink-0 text-[#F5A623]" />
+          <Clock className="h-5 w-5 shrink-0 text-[#2563eb]" />
           <div className="flex flex-col">
             <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Heure</span>
             <span className="text-sm font-semibold text-gray-800">{heurePrise}</span>
@@ -232,7 +232,7 @@ export function TransportSearchBar({ onSearch, isLoading = false }: Props) {
                     key={t}
                     onClick={() => { setHeurePrise(t); setShowTimePrise(false); }}
                     className={`w-full px-4 py-2 text-sm text-left transition-colors ${
-                      t === heurePrise ? "bg-[#F5A623] text-white font-bold" : "text-gray-700 hover:bg-gray-50"
+                      t === heurePrise ? "bg-[#2563eb] text-white font-bold" : "text-gray-700 hover:bg-gray-50"
                     }`}
                   >
                     {t}
@@ -244,7 +244,7 @@ export function TransportSearchBar({ onSearch, isLoading = false }: Props) {
         </div>
 
         {/* ── Séparateur ── */}
-        <div className="hidden md:block w-px bg-[#F5A623]/30 self-stretch" />
+        <div className="hidden md:block w-px bg-gray-200 self-stretch" />
 
         {/* ── 4. DATE DE RESTITUTION ── */}
         <div
@@ -253,7 +253,7 @@ export function TransportSearchBar({ onSearch, isLoading = false }: Props) {
           style={{ overflow: "visible" }}
           onClick={() => { closeAll(); setShowCalRetour(v => !v); }}
         >
-          <Calendar className="h-5 w-5 shrink-0 text-[#F5A623]" />
+          <Calendar className="h-5 w-5 shrink-0 text-[#2563eb]" />
           <div className="flex flex-col">
             <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Date de restitution</span>
             <span className={`text-sm font-semibold ${dateRetour ? "text-gray-800" : "text-gray-400"}`}>
@@ -278,7 +278,7 @@ export function TransportSearchBar({ onSearch, isLoading = false }: Props) {
         </div>
 
         {/* ── Séparateur ── */}
-        <div className="hidden md:block w-px bg-[#F5A623]/30 self-stretch" />
+        <div className="hidden md:block w-px bg-gray-200 self-stretch" />
 
         {/* ── 5. HEURE DE RESTITUTION ── */}
         <div
@@ -287,7 +287,7 @@ export function TransportSearchBar({ onSearch, isLoading = false }: Props) {
           style={{ overflow: "visible" }}
           onClick={() => { closeAll(); setShowTimeRetour(v => !v); }}
         >
-          <Clock className="h-5 w-5 shrink-0 text-[#F5A623]" />
+          <Clock className="h-5 w-5 shrink-0 text-[#2563eb]" />
           <div className="flex flex-col">
             <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Heure</span>
             <span className="text-sm font-semibold text-gray-800">{heureRetour}</span>
@@ -304,7 +304,7 @@ export function TransportSearchBar({ onSearch, isLoading = false }: Props) {
                     key={t}
                     onClick={() => { setHeureRetour(t); setShowTimeRetour(false); }}
                     className={`w-full px-4 py-2 text-sm text-left transition-colors ${
-                      t === heureRetour ? "bg-[#F5A623] text-white font-bold" : "text-gray-700 hover:bg-gray-50"
+                      t === heureRetour ? "bg-[#2563eb] text-white font-bold" : "text-gray-700 hover:bg-gray-50"
                     }`}
                   >
                     {t}
@@ -320,7 +320,7 @@ export function TransportSearchBar({ onSearch, isLoading = false }: Props) {
           onClick={handleSearch}
           disabled={isLoading}
           className="flex items-center justify-center gap-2 px-8 py-4 font-bold text-white text-sm rounded-r-[5px] rounded-l-none transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-70 shrink-0 md:rounded-none md:rounded-r-[5px]"
-          style={{ background: "#003580", borderRadius: "0 5px 5px 0" }}
+          style={{ background: "#2563eb", borderRadius: "0 5px 5px 0" }}
         >
           {isLoading ? (
             <Loader2 className="h-5 w-5 animate-spin" />
