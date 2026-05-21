@@ -1,189 +1,153 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { useState, useEffect, Suspense } from "react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { Loader2, MapPin, Map, ArrowRight, Star } from "lucide-react";
-import Link from "next/link";
-import type { CircuitOffer } from "@/components/CircuitsMap";
+import { Loader2, MapPin, Star, Heart } from "lucide-react";
+import { toast } from "sonner";
 
-/* ── Carte chargée côté client uniquement (Leaflet ≠ SSR) ── */
-const CircuitsMap = dynamic(() => import("@/components/CircuitsMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-blue-50 rounded-2xl">
-      <div className="flex flex-col items-center gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-[#2563eb]" />
-        <p className="text-sm text-muted-foreground">Chargement de la carte…</p>
-      </div>
-    </div>
-  ),
-});
+const CircuitsMap = dynamic(() => import("@/components/CircuitsMap"), { ssr: false });
+
+const getFileUrl = (path: string) => {
+  if (!path) return "";
+  return `${process.env.NEXT_PUBLIC_API_URL}${path}`;
+};
 
 export default function CircuitsPage() {
-  const [offers, setOffers] = useState<CircuitOffer[]>([]);
+  const [offres, setOffres] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [view, setView] = useState<"map" | "list">("map");
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}offers/get_offers.php?type=circuit`)
-      .then((r) => r.json())
-      .then((data) => {
-        const list = Array.isArray(data) ? data : (data.offers ?? []);
-        setOffers(list.filter((o: CircuitOffer) => o.type === "circuit" || !o.type));
-      })
-      .catch(() => setOffers([]))
-      .finally(() => setIsLoading(false));
+    fetchCircuits();
   }, []);
 
-  const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/backend/";
-
-  const getImageUrl = (src?: string) => {
-    if (!src) return "/images/placeholder-offer.jpg";
-    if (src.startsWith("http")) return src;
-    return `${API.replace(/\/+$/, "")}/../${src}`.replace(/([^:])\/\//g, "$1/");
+  const fetchCircuits = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}offers/get_offers.php?type=circuit`);
+      const data = await res.json();
+      if (res.ok && Array.isArray(data)) {
+        setOffres(data.filter((o: any) => o.type === "circuit" || o.type === "circuits"));
+      }
+    } catch {
+      toast.error("Erreur de chargement des circuits.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <main>
-
-        {/* ── Hero ── */}
-        <section className="bg-[#2563eb] pb-0">
-          <div className="mx-auto max-w-7xl px-4 pt-10 pb-6 lg:px-8">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
-                <Map className="h-5 w-5 text-white" />
-              </div>
-              <h1 className="text-2xl font-bold text-white sm:text-3xl">Circuits au Bénin</h1>
-            </div>
-            <p className="text-sm text-white/80 max-w-xl">
-              Explorez nos circuits touristiques par région. Cliquez sur un marker pour découvrir les offres disponibles dans chaque ville.
+        {/* Hero */}
+        <section className="relative overflow-hidden bg-[#2563eb]">
+          <div className="absolute inset-0 opacity-20" style={{
+            backgroundImage: "url('https://images.unsplash.com/photo-1549144511-f099e773c147?q=80&w=2069&auto=format&fit=crop')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }} />
+          <div className="relative mx-auto max-w-7xl px-4 py-16 lg:px-8 lg:py-24 text-center">
+            <h1 className="text-3xl font-bold text-white sm:text-4xl lg:text-5xl text-balance">
+              Circuits au Bénin
+            </h1>
+            <p className="mx-auto mt-4 max-w-2xl text-base text-white/80 leading-relaxed">
+              Découvrez les merveilles du Bénin à travers nos circuits guidés — explorez la carte pour trouver votre prochaine aventure.
             </p>
           </div>
         </section>
 
-        {/* ── Carte ── */}
-        <section className="mx-auto max-w-7xl px-4 lg:px-8 -mt-0">
-          <div className="rounded-2xl overflow-hidden shadow-2xl border border-border" style={{ height: "70vh" }}>
-            {isLoading ? (
-              <div className="flex h-full w-full items-center justify-center bg-blue-50">
-                <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="h-8 w-8 animate-spin text-[#2563eb]" />
-                  <p className="text-sm text-muted-foreground">Chargement des circuits…</p>
-                </div>
-              </div>
-            ) : (
-              <CircuitsMap offers={offers} />
-            )}
-          </div>
-
-          {/* Légende */}
-          <div className="mt-3 flex items-center gap-6 text-xs text-muted-foreground px-1">
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block w-3 h-3 rounded-full bg-[#2563eb]" />
-              Marker = ville avec circuits
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block w-4 h-4 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center font-bold">N</span>
-              Badge rouge = plusieurs circuits
-            </span>
-            <span>Cliquez sur un marker pour voir les offres</span>
-          </div>
-        </section>
-
-        {/* ── Liste des circuits ── */}
-        <section className="mx-auto max-w-7xl px-4 py-12 lg:px-8">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-xl font-bold text-foreground">
-                {isLoading ? "Chargement…" : `${offers.length} circuit${offers.length !== 1 ? "s" : ""} disponible${offers.length !== 1 ? "s" : ""}`}
-              </h2>
-              <p className="text-sm text-muted-foreground mt-0.5">Toutes les régions du Bénin</p>
-            </div>
-            <Link
-              href="/offers?type=circuit"
-              className="flex items-center gap-1.5 text-sm font-medium text-[#2563eb] hover:underline"
+        {/* Toggle vue */}
+        <div className="mx-auto max-w-7xl px-4 lg:px-8 py-6 flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">{offres.length}</span> circuit{offres.length !== 1 ? "s" : ""} disponible{offres.length !== 1 ? "s" : ""}
+          </p>
+          <div className="flex rounded-xl border border-border overflow-hidden">
+            <button
+              onClick={() => setView("map")}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${view === "map" ? "bg-[#2563eb] text-white" : "bg-card text-muted-foreground hover:bg-muted"}`}
             >
-              Voir en liste complète <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+              Carte
+            </button>
+            <button
+              onClick={() => setView("list")}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${view === "list" ? "bg-[#2563eb] text-white" : "bg-card text-muted-foreground hover:bg-muted"}`}
+            >
+              Liste
+            </button>
           </div>
+        </div>
 
+        <div className="mx-auto max-w-7xl px-4 lg:px-8 pb-16">
           {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="rounded-2xl border border-border bg-card overflow-hidden animate-pulse">
-                  <div className="h-48 bg-muted" />
-                  <div className="p-4 space-y-2">
-                    <div className="h-4 bg-muted rounded w-3/4" />
-                    <div className="h-3 bg-muted rounded w-1/2" />
-                    <div className="h-4 bg-muted rounded w-1/3 mt-3" />
-                  </div>
-                </div>
-              ))}
+            <div className="flex h-96 items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-[#2563eb]" />
             </div>
-          ) : offers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 rounded-2xl border border-border bg-card text-center">
-              <Map className="h-12 w-12 text-muted-foreground/30 mb-4" />
-              <h3 className="text-lg font-semibold text-foreground">Aucun circuit disponible</h3>
-              <p className="mt-1 text-sm text-muted-foreground max-w-xs">
-                Les partenaires n&apos;ont pas encore publié de circuits. Revenez bientôt !
-              </p>
+          ) : view === "map" ? (
+            <div className="rounded-2xl overflow-hidden shadow-xl border border-border">
+              <Suspense fallback={
+                <div className="flex h-96 items-center justify-center bg-muted">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#2563eb]" />
+                </div>
+              }>
+                <CircuitsMap offres={offres} getFileUrl={getFileUrl} />
+              </Suspense>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {offers.map((offer) => {
-                const imgSrc = getImageUrl(offer.images?.[0]);
-                return (
-                  <Link
-                    key={offer.id}
-                    href={`/offers?type=circuit`}
-                    className="group rounded-2xl border border-border bg-card overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {offres.length === 0 ? (
+                <div className="col-span-3 py-20 text-center">
+                  <MapPin className="mx-auto h-12 w-12 text-muted-foreground/40" />
+                  <h3 className="mt-4 text-lg font-semibold">Aucun circuit disponible</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">Revenez bientôt pour découvrir nos circuits.</p>
+                </div>
+              ) : (
+                offres.map((o) => (
+                  <a
+                    key={o.id}
+                    href={`/offers/${o.id}`}
+                    className="group overflow-hidden rounded-xl border border-border bg-card transition-all hover:shadow-lg hover:-translate-y-1"
                   >
-                    {/* Image */}
-                    <div className="relative h-48 overflow-hidden bg-muted">
-                      <img
-                        src={imgSrc}
-                        alt={offer.title}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                        onError={(e) => { (e.target as HTMLImageElement).src = "/images/placeholder-offer.jpg"; }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                      <span className="absolute top-3 left-3 rounded-full bg-[#2563eb] px-2.5 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider">
+                    <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+                      {o.images && o.images.length > 0 ? (
+                        <img
+                          src={getFileUrl(o.images[0])}
+                          alt={o.title}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <MapPin className="h-10 w-10 text-muted-foreground/30" />
+                        </div>
+                      )}
+                      <span className="absolute top-3 left-3 rounded-md bg-[#2563eb]/90 px-2.5 py-1 text-xs font-semibold text-white capitalize shadow-sm">
                         Circuit
                       </span>
                     </div>
-
-                    {/* Contenu */}
                     <div className="p-4">
-                      <h3 className="font-semibold text-foreground text-sm line-clamp-2 mb-1 group-hover:text-[#2563eb] transition-colors">
-                        {offer.title}
-                      </h3>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
-                        <MapPin className="h-3 w-3 shrink-0 text-[#2563eb]" />
-                        {offer.location}
+                      <h3 className="font-semibold text-foreground truncate">{o.title}</h3>
+                      <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        {o.location}
                       </div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-[10px] text-muted-foreground">À partir de</p>
-                          <p className="text-base font-bold text-[#2563eb]">
-                            {Number(offer.prix).toLocaleString("fr-FR")}
-                            <span className="text-xs font-normal text-muted-foreground ml-1">CFA</span>
-                          </p>
+                      <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-lg font-bold text-[#2563eb]">{o.price}</span>
+                          <span className="text-xs text-muted-foreground uppercase">{o.currency}</span>
                         </div>
-                        <span className="flex items-center gap-1 text-xs font-medium text-foreground bg-muted rounded-full px-2.5 py-1 group-hover:bg-[#2563eb]/10 group-hover:text-[#2563eb] transition-colors">
-                          Voir <ArrowRight className="h-3 w-3" />
+                        <span className="text-xs font-semibold text-[#2563eb] hover:underline">
+                          Voir l'offre →
                         </span>
                       </div>
                     </div>
-                  </Link>
-                );
-              })}
+                  </a>
+                ))
+              )}
             </div>
           )}
-        </section>
-
+        </div>
       </main>
       <Footer />
     </div>

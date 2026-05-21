@@ -166,3 +166,29 @@ iframe[name="qctIframe"] {
   border: none !important;
   box-shadow: none !important;
 }
+
+/* ── React Day Picker ── */
+.rdp-root { margin: 0 !important; }
+.rdp-months { display: flex !important; gap: 24px !important; flex-wrap: wrap !important; }
+.rdp-day_button:not([disabled]):not(.rdp-day_selected) { color: var(--foreground); }
+.rdp-selected .rdp-day_button,
+.rdp-selected:not(.rdp-range_middle) .rdp-day_button {
+  background-color: #2563eb !important;
+  color: white !important;
+  border-radius: 9999px !important;
+}
+.rdp-range_middle .rdp-day_button {
+  background-color: #dbeafe !important;
+  color: #1e40af !important;
+  border-radius: 0 !important;
+}
+.rdp-day_button:hover:not([disabled]) {
+  background-color: #2563eb20 !important;
+  border-radius: 9999px !important;
+}
+.rdp-caption_label { font-weight: 700; font-size: 0.875rem; }
+.rdp-nav button { border-radius: 9999px !important; }
+
+/* Scrollbar hide utility */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

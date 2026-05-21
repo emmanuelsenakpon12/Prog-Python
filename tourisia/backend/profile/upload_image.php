@@ -48,28 +48,35 @@ try {
         exit();
     }
 
-    // Créer le dossier d'upload s'il n'existe pas
-    $upload_dir = '../uploads/profiles/';
+    // Créer les dossiers d'upload si inexistants
+    $upload_dir = __DIR__ . '/../uploads/profiles/';
     if (!file_exists($upload_dir)) {
         mkdir($upload_dir, 0777, true);
+    }
+    $banners_dir = __DIR__ . '/../uploads/banners/';
+    if (!file_exists($banners_dir)) {
+        mkdir($banners_dir, 0777, true);
     }
 
     $filename = $type . '_' . $id . '_' . time() . '.' . $extension;
     $target_path = $upload_dir . $filename;
-    $public_path = 'http://localhost:8000/backend/uploads/profiles/' . $filename;
+    // URL relative depuis la racine backend — le frontend préfixe avec BASE_URL
+    $relative_url = '/uploads/profiles/' . $filename;
 
     if (move_uploaded_file($file['tmp_name'], $target_path)) {
         // Mettre à jour la base de données
         $query = "UPDATE users SET $type = :path WHERE id = :id";
         $stmt = $pdo->prepare($query);
-        $stmt->bindParam(':path', $public_path);
+        $stmt->bindParam(':path', $relative_url);
         $stmt->bindParam(':id', $id);
 
         if ($stmt->execute()) {
             http_response_code(200);
             echo json_encode([
+                "success" => true,
                 "message" => "Image mise à jour avec succès.",
-                "path" => $public_path
+                "url"     => $relative_url,
+                "path"    => $relative_url
             ]);
         } else {
             http_response_code(500);

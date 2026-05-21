@@ -54,6 +54,16 @@ import {
   Zap,
 } from "lucide-react";
 import { ItineraryList } from "@/components/itinerary/itinerary-list";
+import { differenceInHours, subHours, format as formatDate } from "date-fns";
+import { fr as frLocale } from "date-fns/locale";
+
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:8000";
+
+function getImgUrl(path: string | null | undefined): string {
+  if (!path) return "";
+  if (path.startsWith("http")) return path;
+  return `${BASE_URL}${path}`;
+}
 
 /* ─── DONNÉES MOCK (exemples) ─── */
 const badges = [
@@ -184,6 +194,7 @@ const settingsSections = [
 const tabs = [
   { id: "overview", label: "Aperçu" },
   { id: "itineraries", label: "Mes Carnets" },
+  { id: "reservations", label: "Réservations" },
   { id: "wishlist", label: "Favoris" },
   { id: "reviews", label: "Avis" },
   { id: "messagerie", label: "Messagerie" },
@@ -261,10 +272,11 @@ function ProfileContent() {
   useEffect(() => {
     const tabParam = searchParams.get("tab");
     const partnerIdParam = searchParams.get("partner_id");
+    const validTabs = ["overview", "itineraries", "reservations", "wishlist", "reviews", "messagerie", "settings"];
 
-    if (tabParam === "messagerie") {
-      setActiveTab("messagerie");
-      if (partnerIdParam) {
+    if (tabParam && validTabs.includes(tabParam)) {
+      setActiveTab(tabParam);
+      if (tabParam === "messagerie" && partnerIdParam) {
         handleAutoOpenConversation(parseInt(partnerIdParam));
       }
     }
@@ -543,11 +555,26 @@ function ProfileContent() {
         setShowDeleteModal(false);
         setReservationToDelete(null);
       } else {
-        toast.error(data.message || "Erreur lors de la suppression.");
+        toast.error(data.message || "Erreur lors de l'annulation.");
       }
     } catch (err) {
       toast.error("Erreur de connexion au serveur.");
     }
+  };
+
+  const isReservationCancellable = (reservation: any) => {
+    if (!reservation || reservation.status === "cancelled") return false;
+    const dateArrivee = reservation.date_arrivee || reservation.check_in;
+    if (!dateArrivee) return false;
+    const heures = differenceInHours(new Date(dateArrivee), new Date());
+    return heures > 72;
+  };
+
+  const getCancellationDeadline = (reservation: any) => {
+    const dateArrivee = reservation.date_arrivee || reservation.check_in;
+    if (!dateArrivee) return null;
+    const dateLimite = subHours(new Date(dateArrivee), 72);
+    return formatDate(dateLimite, "dd MMMM yyyy 'à' HH'h'mm", { locale: frLocale });
   };
 
   const removeFromFavorites = async (offerId: number) => {
@@ -690,13 +717,9 @@ function ProfileContent() {
 
       const data = await response.json();
 
-      if (response.ok) {
-        toast.success(
-          type === "avatar"
-            ? "Photo de profil mise à jour !"
-            : "Bannière mise à jour !",
-        );
-        const updatedUser = { ...user, [type]: data.path };
+      if (response.ok && (data.success || data.path || data.url)) {
+        toast.success(type === "avatar" ? "Photo de profil mise à jour !" : "Bannière mise à jour !");
+        const updatedUser = { ...user, [type]: data.url || data.path };
         setUser(updatedUser);
         localStorage.setItem("user", JSON.stringify(updatedUser));
       } else {
@@ -715,14 +738,15 @@ function ProfileContent() {
         {/* ─── BANNIÈRE + AVATAR ─── */}
         <section className="relative">
           {/* Image de couverture */}
-          <div className="relative h-48 sm:h-64 lg:h-80">
-            <Image
-              src={user.cover_image || "/images/profile-cover.jpg"}
-              alt="Bannière de profil"
-              fill
-              className="object-cover"
-              priority
-            />
+          <div className="relative h-48 sm:h-64 lg:h-80"
+            style={user.cover_image ? {
+              backgroundImage: `url(${getImgUrl(user.cover_image)})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            } : {}}>
+            {!user.cover_image && (
+              <Image src="/images/profile-cover.jpg" alt="Bannière de profil" fill className="object-cover" priority />
+            )}
             <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-transparent to-foreground/20" />
 
             <input
@@ -747,24 +771,17 @@ function ProfileContent() {
             <div className="relative flex flex-col items-start gap-5 pb-6 sm:flex-row sm:items-end sm:gap-6">
               {/* Avatar */}
               <div className="relative -mt-16 sm:-mt-20">
-                <div className="flex h-28 w-28 items-center justify-center rounded-2xl border-4 border-card bg-[#2563eb] shadow-lg sm:h-36 sm:w-36 overflow-hidden">
-                  {user.avatar ? (
-                    <Image
-                      src={user.avatar}
+                <div className="relative flex h-28 w-28 items-center justify-center rounded-2xl border-4 border-card bg-[#2563eb] shadow-lg sm:h-36 sm:w-36 overflow-hidden">
+                  <span className="text-3xl font-bold text-white sm:text-4xl text-center uppercase select-none">
+                    {user.fullname ? user.fullname.split(" ").map((n: string) => n[0]).join("").slice(0, 2) : "??"}
+                  </span>
+                  {user.avatar && (
+                    <img
+                      src={getImgUrl(user.avatar)}
                       alt={user.fullname}
-                      fill
-                      className="object-cover"
+                      className="absolute inset-0 w-full h-full object-cover"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                     />
-                  ) : (
-                    <span className="text-3xl font-bold text-white sm:text-4xl text-center uppercase">
-                      {user.fullname
-                        ? user.fullname
-                          .split(" ")
-                          .map((n: string) => n[0])
-                          .join("")
-                          .slice(0, 2)
-                        : "SJ"}
-                    </span>
                   )}
                 </div>
                 <input
@@ -854,7 +871,7 @@ function ProfileContent() {
         </section>
 
         {/* ─── ONGLETS ─── */}
-        <section className="sticky top-16 z-30 border-b border-border bg-card/95 backdrop-blur-sm">
+        <section className="sticky top-[120px] z-30 border-b border-border bg-card/95 backdrop-blur-sm">
           <div className="mx-auto max-w-7xl px-4 lg:px-8">
             <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
               {tabs.map((tab) => (
@@ -1124,10 +1141,13 @@ function ProfileContent() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              confirmDelete(res.id);
+                              if (isReservationCancellable(res)) {
+                                confirmDelete(res.id);
+                              }
                             }}
-                            className="absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-destructive shadow-md hover:bg-white hover:scale-110 transition-all"
-                            aria-label="Supprimer la réservation"
+                            disabled={!isReservationCancellable(res)}
+                            className={`absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-destructive shadow-md transition-all ${!isReservationCancellable(res) ? 'cursor-not-allowed opacity-50' : 'hover:bg-white hover:scale-110'}`}
+                            aria-label="Annuler la réservation"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -1140,13 +1160,32 @@ function ProfileContent() {
                             <MapPin className="h-3 w-3" />
                             {res.location}
                           </div>
-                          <div className="mt-2 flex items-center justify-between border-t border-border pt-3">
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            {res.status === 'cancelled'
+                              ? 'Réservation annulée'
+                              : isReservationCancellable(res)
+                                ? `Annulable jusqu'au ${getCancellationDeadline(res)}`
+                                : 'Annulation plus possible'
+                            }
+                          </div>
+                          <div className="mt-3 flex items-baseline justify-between border-t border-border pt-3">
                             <div className="flex items-baseline gap-1">
                               <span className="text-lg font-bold text-[#2563eb]">{res.price}</span>
                               <span className="text-xs font-medium text-muted-foreground uppercase">{res.currency}</span>
                             </div>
-                            <button className="text-[10px] sm:text-xs font-bold text-[#2563eb] hover:underline">
-                              Voir détails
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                confirmDelete(res.id);
+                              }}
+                              disabled={!isReservationCancellable(res)}
+                              className={`rounded-full px-3 py-1.5 text-[10px] font-bold transition-all ${isReservationCancellable(res)
+                                ? 'bg-[#2563eb] text-white hover:bg-[#1d4ed8]'
+                                : 'cursor-not-allowed bg-muted text-muted-foreground'
+                              }`}
+                              aria-label="Annuler la réservation"
+                            >
+                              {res.status === 'cancelled' ? 'Annulé' : isReservationCancellable(res) ? 'Annuler' : 'Indisponible'}
                             </button>
                           </div>
                         </div>
