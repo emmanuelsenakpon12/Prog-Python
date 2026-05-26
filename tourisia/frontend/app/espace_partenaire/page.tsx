@@ -22,7 +22,6 @@ import {
   CreditCard,
   Save,
   Loader2,
-  Eye,
   Download,
   X,
   Plus,
@@ -50,7 +49,7 @@ export default function PartnerDashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
   const [contractHtml, setContractHtml] = useState("");
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -83,6 +82,10 @@ export default function PartnerDashboard() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedOfferDetails, setSelectedOfferDetails] = useState<any>(null);
 
+  // Reservation states
+  const [reservations, setReservations] = useState<any[]>([]);
+  const [loadingReservations, setLoadingReservations] = useState(false);
+
   // Messaging states
   const [conversations, setConversations] = useState<any[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(false);
@@ -103,6 +106,46 @@ export default function PartnerDashboard() {
     setFormData(data);
     fetchOffers(data.id);
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "reservations" && partner) {
+      fetchReservations(partner.id);
+    }
+  }, [activeTab, partner]);
+
+  const fetchReservations = async (partnerId: number) => {
+    setLoadingReservations(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}partners/get_reservations.php?partner_id=${partnerId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) setReservations(data);
+      }
+    } catch (err) {
+      console.error("Erreur récupération réservations", err);
+    } finally {
+      setLoadingReservations(false);
+    }
+  };
+
+  const updateReservationStatus = async (reservationId: number, status: "confirmed" | "cancelled") => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}partners/update_reservation_status.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reservation_id: reservationId, status, partner_id: partner.id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(status === "confirmed" ? "Réservation confirmée !" : "Réservation refusée.");
+        setReservations(prev => prev.map(r => r.id === reservationId ? { ...r, status } : r));
+      } else {
+        toast.error(data.message || "Erreur lors de la mise à jour.");
+      }
+    } catch {
+      toast.error("Erreur réseau.");
+    }
+  };
 
   // Real-time Polling for Partner Messaging
   useEffect(() => {
@@ -650,10 +693,11 @@ export default function PartnerDashboard() {
   if (!partner) return null;
 
   const navItems = [
-    { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-    { id: "publications", label: "Publications", icon: Package },
+    { id: "dashboard",     label: "Tableau de bord", icon: LayoutDashboard },
+    { id: "publications",  label: "Publications",    icon: Package },
+    { id: "reservations",  label: "Réservations",    icon: Calendar },
     ...(partner.selected_plan !== "Gratuit" ? [{ id: "messagerie", label: "Messagerie", icon: MessageSquare }] : []),
-    { id: "settings", label: "Paramètres", icon: Settings },
+    { id: "settings",      label: "Paramètres",      icon: Settings },
   ];
 
   return (
@@ -1068,6 +1112,111 @@ export default function PartnerDashboard() {
                     Ajoutez vos hôtels, circuits et expériences directement ici
                     pour attirer des voyageurs du monde entier.
                   </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "reservations" && (
+            <div className="space-y-6 animate-in fade-in duration-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground">Réservations</h2>
+                  <p className="text-muted-foreground mt-1">Gérez les demandes de réservation de vos clients.</p>
+                </div>
+                {reservations.filter(r => r.status === "pending").length > 0 && (
+                  <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">
+                    {reservations.filter(r => r.status === "pending").length} en attente
+                  </span>
+                )}
+              </div>
+
+              {loadingReservations ? (
+                <div className="flex h-64 items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#2563eb]" />
+                </div>
+              ) : reservations.length === 0 ? (
+                <div className="rounded-3xl border border-border bg-card p-12 text-center flex flex-col items-center justify-center min-h-[400px] shadow-sm">
+                  <div className="h-24 w-24 rounded-full bg-muted/50 flex items-center justify-center mb-6">
+                    <Calendar className="h-12 w-12 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-foreground">Aucune réservation</h3>
+                  <p className="text-sm text-muted-foreground mt-3 max-w-md mx-auto leading-relaxed">
+                    Quand des clients réservent vos offres, leurs demandes apparaîtront ici.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {reservations.map((r) => (
+                    <div key={r.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm hover:shadow-md transition-all">
+                      <div className="flex flex-col md:flex-row md:items-start gap-4">
+                        <div className="flex-1 space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <h4 className="font-bold text-foreground line-clamp-1">{r.offer_title}</h4>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Réservé le {new Date(r.created_at).toLocaleDateString("fr-FR")}
+                              </p>
+                            </div>
+                            <span className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                              r.status === "pending"
+                                ? "bg-amber-100 text-amber-700"
+                                : r.status === "confirmed"
+                                ? "bg-green-100 text-green-700"
+                                : "bg-red-100 text-red-700"
+                            }`}>
+                              {r.status === "pending" ? "En attente" : r.status === "confirmed" ? "Confirmée" : "Annulée"}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                            <div className="bg-muted/30 rounded-xl p-3">
+                              <p className="text-muted-foreground mb-1">Client</p>
+                              <p className="font-bold truncate">{r.client_name}</p>
+                            </div>
+                            <div className="bg-muted/30 rounded-xl p-3">
+                              <p className="text-muted-foreground mb-1">Dates</p>
+                              <p className="font-bold">
+                                {r.date_arrivee ? new Date(r.date_arrivee).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" }) : "—"}
+                                {" → "}
+                                {r.date_depart ? new Date(r.date_depart).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" }) : "—"}
+                              </p>
+                            </div>
+                            <div className="bg-muted/30 rounded-xl p-3">
+                              <p className="text-muted-foreground mb-1">Durée</p>
+                              <p className="font-bold">{r.nombre_nuits} nuit{Number(r.nombre_nuits) > 1 ? "s" : ""}</p>
+                            </div>
+                            <div className="bg-muted/30 rounded-xl p-3">
+                              <p className="text-muted-foreground mb-1">Montant</p>
+                              <p className="font-bold text-[#2563eb]">{Number(r.prix_total).toLocaleString()} {r.devise}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1"><Mail className="h-3 w-3" /> {r.client_email}</span>
+                            {r.client_phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {r.client_phone}</span>}
+                          </div>
+                        </div>
+
+                        {r.status === "pending" && (
+                          <div className="flex md:flex-col gap-2 shrink-0">
+                            <button
+                              onClick={() => updateReservationStatus(r.id, "confirmed")}
+                              className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-xl bg-green-500 px-4 py-2.5 text-xs font-bold text-white hover:bg-green-600 transition-all shadow-sm"
+                            >
+                              <Check className="h-3.5 w-3.5" /> Confirmer
+                            </button>
+                            <button
+                              onClick={() => updateReservationStatus(r.id, "cancelled")}
+                              className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-100 transition-all"
+                            >
+                              <X className="h-3.5 w-3.5" /> Refuser
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

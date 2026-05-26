@@ -22,10 +22,17 @@ try {
     $pdo->exec("USE tourisia");
 
     $stmt = $pdo->prepare(
-        "SELECT 
+        "SELECT
             r.id,
             r.status,
             r.created_at,
+            r.date_arrivee,
+            r.date_depart,
+            r.nombre_nuits,
+            r.nombre_adultes,
+            r.nombre_enfants,
+            r.prix_total,
+            r.devise,
             o.title as offer_title,
             o.price,
             o.currency,

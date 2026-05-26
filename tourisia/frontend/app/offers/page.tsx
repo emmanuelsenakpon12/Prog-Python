@@ -1,36 +1,21 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import {
-  Star, Heart, MapPin, SlidersHorizontal, Search,
-  ChevronDown, X, Play, Calendar, Loader2,
+  Star, Heart, MapPin, Search,
+  X, Play, Calendar, Loader2,
   ChevronLeft, ChevronRight, MessageSquare,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
 import { AddToItineraryButton } from "@/components/itinerary/add-to-itinerary-button";
-import { subHours, format } from "date-fns";
+import { subHours, format, differenceInDays } from "date-fns";
 import { fr } from "date-fns/locale";
 
-const categories = [
-  { id: "all",         label: "Toutes les offres" },
-  { id: "herbergement", label: "Hébergements" },
-  { id: "transport",   label: "Transport" },
-  { id: "vol",         label: "Vols" },
-  { id: "activite",    label: "Activités" },
-  { id: "circuit",     label: "Circuits" },
-];
-
-const sortOptions = [
-  { id: "recommended", label: "Recommandé" },
-  { id: "price-low",   label: "Prix : du plus bas au plus élevé" },
-  { id: "price-high",  label: "Prix : du plus élevé au plus bas" },
-  { id: "rating",      label: "Les mieux notés" },
-];
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -113,9 +98,7 @@ function OffersPageContent() {
   const [offers, setOffers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("all");
-  const [sortBy, setSortBy] = useState("recommended");
   const [searchQuery, setSearchQuery] = useState("");
-  const [showSort, setShowSort] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const offersPerPage = 12;
   const [favorites, setFavorites] = useState<number[]>([]);
@@ -124,7 +107,11 @@ function OffersPageContent() {
   const [modalImg, setModalImg] = useState(0);
   const [user, setUser] = useState<any>(null);
   const [userPartnerId, setUserPartnerId] = useState<number | null>(null);
-  const [bookingDate, setBookingDate] = useState("");
+  const reservationWidgetRef = useRef<HTMLDivElement>(null);
+  const [dateArrivee, setDateArrivee] = useState("");
+  const [dateDepart, setDateDepart] = useState("");
+  const [reservationConfirmee, setReservationConfirmee] = useState(false);
+  const [reservationError, setReservationError] = useState("");
 
   const searchParams = useSearchParams();
 
@@ -201,15 +188,7 @@ function OffersPageContent() {
       o.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       o.location.toLowerCase().includes(searchQuery.toLowerCase())
     )
-    .sort((a, b) => {
-      const priceA = parseFloat(a.price), priceB = parseFloat(b.price);
-      switch (sortBy) {
-        case "price-low": return priceA - priceB;
-        case "price-high": return priceB - priceA;
-        case "rating": return (b.rating || 0) - (a.rating || 0);
-        default: return 0;
-      }
-    });
+    .sort(() => 0);
 
   const totalPages = Math.ceil(filtered.length / offersPerPage);
   const startIndex = (currentPage - 1) * offersPerPage;
@@ -223,16 +202,72 @@ function OffersPageContent() {
   const openModal = (offer: any) => {
     setSelectedOffer(offer);
     setModalImg(0);
-    setBookingDate("");
+    setDateArrivee("");
+    setDateDepart("");
+    setReservationConfirmee(false);
+    setReservationError("");
     setShowDetailModal(true);
   };
 
+  const today = new Date().toISOString().split("T")[0];
+
   const cancellationDeadline = (() => {
-    if (!bookingDate) return null;
-    try {
-      return subHours(new Date(bookingDate), 72);
-    } catch { return null; }
+    if (!dateArrivee) return null;
+    try { return subHours(new Date(dateArrivee), 72); } catch { return null; }
   })();
+
+  const peutReserver = dateArrivee !== "" && dateDepart !== "";
+
+  const nombreNuits = peutReserver
+    ? Math.max(0, differenceInDays(new Date(dateDepart), new Date(dateArrivee)))
+    : 0;
+
+  const prixTotal = nombreNuits * parseFloat(selectedOffer?.price || "0");
+
+  useEffect(() => {
+    if (showDetailModal) {
+      setTimeout(() => {
+        reservationWidgetRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 350);
+    }
+  }, [showDetailModal]);
+
+  const handleReserver = async () => {
+    if (!peutReserver) return;
+    const stored = localStorage.getItem("user");
+    if (!stored) { router.push("/login"); return; }
+    const user = JSON.parse(stored);
+    if (!user?.id) { router.push("/login"); return; }
+
+    setReservationError("");
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}offers/add_reservation.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          offer_id: selectedOffer.id,
+          user_id: user.id,
+          date_arrivee: dateArrivee,
+          date_depart: dateDepart,
+          nombre_nuits: nombreNuits,
+          nombre_adultes: 1,
+          nombre_enfants: 0,
+          prix_total: prixTotal,
+          devise: selectedOffer.currency || "CFA",
+          statut: "en_attente",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setReservationConfirmee(true);
+        toast.success("Réservation enregistrée !");
+      } else {
+        setReservationError(data.message || "Erreur lors de la réservation.");
+      }
+    } catch {
+      setReservationError("Erreur réseau, veuillez réessayer.");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -249,75 +284,6 @@ function OffersPageContent() {
               Faites de grosses économies sur des séjours, des circuits et des expériences triés sur le volet.
             </p>
           </div>
-        </section>
-
-        {/* Search & filters — offset compensé pour la navbar 2 lignes */}
-        <section className="sticky top-[120px] z-30 border-b border-border bg-card/95 backdrop-blur-sm">
-          <div className="mx-auto max-w-7xl px-3 py-3 sm:px-4 sm:py-4 lg:px-8">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center flex-1">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Rechercher une destination..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-background py-2 sm:py-2.5 pl-10 pr-4 text-sm focus:border-[#2563eb] focus:outline-none focus:ring-2 focus:ring-[#2563eb]/20"
-                  />
-                </div>
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-hide -mx-1 px-1">
-                  {categories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      onClick={() => setActiveCategory(cat.id)}
-                      className={`whitespace-nowrap rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-semibold transition-all ${
-                        activeCategory === cat.id
-                          ? "bg-[#2563eb] text-white shadow-md shadow-[#2563eb]/20 scale-105"
-                          : "bg-muted text-muted-foreground hover:bg-muted/80"
-                      }`}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="relative">
-                <button
-                  onClick={() => setShowSort(!showSort)}
-                  className="flex w-full md:w-48 items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 sm:px-4 sm:py-2.5 text-[11px] sm:text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  <div className="flex items-center gap-2">
-                    <SlidersHorizontal className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    <span>{sortOptions.find((o) => o.id === sortBy)?.label}</span>
-                  </div>
-                  <ChevronDown className={`h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform ${showSort ? "rotate-180" : ""}`} />
-                </button>
-                {showSort && (
-                  <div className="absolute right-0 top-full mt-2 w-full md:w-48 rounded-xl border border-border bg-card p-2 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200 z-50">
-                    {sortOptions.map((option) => (
-                      <button
-                        key={option.id}
-                        onClick={() => { setSortBy(option.id); setShowSort(false); }}
-                        className={`w-full rounded-lg px-3 py-2 text-left text-[11px] sm:text-xs transition-colors ${
-                          sortBy === option.id ? "bg-[#2563eb]/10 text-[#2563eb] font-bold" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                        }`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Results count */}
-        <section className="mx-auto max-w-7xl px-4 pt-8 lg:px-8">
-          <p className="text-sm text-muted-foreground">
-            Affichage <span className="font-semibold text-foreground">{filtered.length}</span> Offres
-          </p>
         </section>
 
         {/* Offers grid */}
@@ -604,7 +570,7 @@ function OffersPageContent() {
                     </div>
                   </div>
 
-                  <div className="p-5 sm:p-6 rounded-xl sm:rounded-2xl bg-[#2563eb] text-white space-y-4 shadow-xl shadow-[#2563eb]/20">
+                  <div ref={reservationWidgetRef} className="p-5 sm:p-6 rounded-xl sm:rounded-2xl bg-[#2563eb] text-white space-y-4 shadow-xl shadow-[#2563eb]/20">
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-white/20 flex items-center justify-center">
                         <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -615,32 +581,66 @@ function OffersPageContent() {
                       </div>
                     </div>
 
-                    {/* Date d'arrivée pour la politique d'annulation */}
+                    {/* Date d'arrivée */}
                     <div className="space-y-1">
-                      <label className="text-[10px] text-white/70 font-bold uppercase">Date d'arrivée prévue</label>
+                      <label className="text-[10px] text-white/70 font-bold uppercase">Date d'arrivée</label>
                       <input
                         type="date"
-                        value={bookingDate}
-                        min={new Date().toISOString().split("T")[0]}
-                        onChange={(e) => setBookingDate(e.target.value)}
-                        className="w-full rounded-lg bg-white/20 border border-white/30 px-3 py-2 text-sm text-white placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-white/40"
+                        value={dateArrivee}
+                        min={today}
+                        onChange={(e) => {
+                          setDateArrivee(e.target.value);
+                          if (dateDepart && e.target.value >= dateDepart) setDateDepart("");
+                        }}
+                        className="w-full rounded-lg bg-white/20 border border-white/30 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/40 [color-scheme:dark]"
                       />
                     </div>
 
+                    {/* Date de départ */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-white/70 font-bold uppercase">Date de départ</label>
+                      <input
+                        type="date"
+                        value={dateDepart}
+                        min={dateArrivee || today}
+                        onChange={(e) => setDateDepart(e.target.value)}
+                        className="w-full rounded-lg bg-white/20 border border-white/30 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/40 [color-scheme:dark]"
+                      />
+                    </div>
+
+                    {/* Résumé nuits + prix */}
+                    {peutReserver && nombreNuits > 0 && (
+                      <div className="flex items-center justify-between bg-white/10 rounded-lg px-3 py-2 text-sm">
+                        <span className="text-white/80">{nombreNuits} nuit{nombreNuits > 1 ? "s" : ""}</span>
+                        <span className="font-bold">{prixTotal.toLocaleString()} {selectedOffer.currency}</span>
+                      </div>
+                    )}
+
                     {/* Politique d'annulation */}
                     {cancellationDeadline && (
-                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
                         <p className="text-amber-800 font-medium text-xs">ℹ️ Politique d'annulation</p>
-                        <p className="text-amber-700 text-xs mt-1">
+                        <p className="text-amber-700 text-xs font-bold mt-1">
                           Annulation gratuite jusqu'au{" "}
-                          <strong>
-                            {format(cancellationDeadline, "dd MMMM yyyy 'à' HH'h'mm", { locale: fr })}
-                          </strong>
+                          {format(cancellationDeadline, "dd MMMM yyyy 'à' HH'h'mm", { locale: fr })}
                         </p>
                         <p className="text-amber-600 text-[10px] mt-1">
                           ⚠️ Passé ce délai, l'annulation ne sera plus possible.
                         </p>
                       </div>
+                    )}
+
+                    {/* Confirmation */}
+                    {reservationConfirmee && (
+                      <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
+                        <p className="text-green-700 font-bold text-sm">Réservation confirmée !</p>
+                        <p className="text-green-600 text-xs mt-1">Vous pouvez suivre votre réservation dans votre profil.</p>
+                      </div>
+                    )}
+
+                    {/* Erreur */}
+                    {reservationError && (
+                      <p className="text-red-300 text-xs text-center">{reservationError}</p>
                     )}
 
                     {selectedOffer.partner_id === userPartnerId ? (
@@ -649,8 +649,16 @@ function OffersPageContent() {
                       </div>
                     ) : (
                       <>
-                        <button className="w-full py-3 sm:py-4 rounded-lg sm:rounded-xl text-[12px] sm:text-sm font-bold transition-all flex items-center justify-center gap-2 bg-gray-100 text-gray-400 cursor-not-allowed">
-                          Réserver
+                        <button
+                          onClick={handleReserver}
+                          disabled={!peutReserver || reservationConfirmee}
+                          className={`w-full py-3 sm:py-4 rounded-lg sm:rounded-xl text-[12px] sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                            peutReserver && !reservationConfirmee
+                              ? "bg-white text-[#2563eb] hover:bg-blue-50 cursor-pointer"
+                              : "bg-white/30 text-white/50 cursor-not-allowed"
+                          }`}
+                        >
+                          {reservationConfirmee ? "Réservé ✓" : "Réserver"}
                         </button>
                         {selectedOffer.selected_plan !== "Gratuit" && (
                           <button
@@ -662,7 +670,7 @@ function OffersPageContent() {
                           </button>
                         )}
                         <p className="text-[9px] sm:text-[10px] text-center text-white/60">
-                          En cliquant sur le bouton, vous enregistrez votre réservation auprès du partenaire.
+                          En cliquant sur Réserver, vous enregistrez votre réservation auprès du partenaire.
                         </p>
                       </>
                     )}
