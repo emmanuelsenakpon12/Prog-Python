@@ -255,10 +255,10 @@ export default function BecomeProviderPage() {
                   src="/images/provider-hero.png"
                   alt="Hero"
                   fill
-                  className="object-cover"
+                  className="object-cover object-right"
                   priority
                 />
-                <div className="absolute inset-0 bg-gradient-to-r from-foreground/90 via-foreground/70 to-foreground/40" />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/80 to-black/20" />
               </div>
               <div className="relative mx-auto max-w-7xl px-4 py-24 lg:px-8 lg:py-36">
                 <div className="max-w-2xl">
