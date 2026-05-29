@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plane, Eye, EyeOff, ArrowRight, Check } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, Check } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -15,13 +15,19 @@ const passwordChecks = [
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      toast.error("Les mots de passe ne correspondent pas.");
+      return;
+    }
     setIsLoading(true);
 
     try {
@@ -227,6 +233,45 @@ export default function RegisterPage() {
               )}
             </div>
 
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground">
+                Confirmer le mot de passe
+              </label>
+              <div className="relative mt-1.5">
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Répétez votre mot de passe"
+                  className={`w-full rounded-lg border bg-card px-4 py-2.5 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 transition-colors ${
+                    confirmPassword.length > 0
+                      ? password === confirmPassword
+                        ? "border-emerald-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                        : "border-red-400 focus:border-red-400 focus:ring-red-400/20"
+                      : "border-border focus:border-[#2563eb] focus:ring-[#2563eb]/20"
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showConfirmPassword ? "Masquer" : "Afficher"}
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {confirmPassword.length > 0 && (
+                <p className={`mt-1.5 text-xs flex items-center gap-1.5 ${password === confirmPassword ? "text-emerald-600" : "text-red-500"}`}>
+                  <span className={`flex h-4 w-4 items-center justify-center rounded-full ${password === confirmPassword ? "bg-emerald-500" : "bg-red-400"}`}>
+                    <Check className="h-2.5 w-2.5 text-white" />
+                  </span>
+                  {password === confirmPassword ? "Les mots de passe correspondent" : "Les mots de passe ne correspondent pas"}
+                </p>
+              )}
+            </div>
+
             <div className="flex items-start gap-2">
               <input
                 id="terms"
@@ -257,7 +302,7 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={isLoading || (password.length > 0 && !allChecksPassed)}
+              disabled={isLoading || (password.length > 0 && !allChecksPassed) || (confirmPassword.length > 0 && password !== confirmPassword)}
               className="mt-2 flex items-center justify-center gap-2 rounded-lg bg-[#2563eb] py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1d4ed8] disabled:opacity-60"
             >
               {isLoading ? (

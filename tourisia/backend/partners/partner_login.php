@@ -34,17 +34,30 @@ try {
     $stmt->execute([':login' => $login]);
     $partner = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($partner && password_verify($password, $partner['manager_password'])) {
-        unset($partner['manager_password']); // Sécurité
-        http_response_code(200);
-        echo json_encode([
-            "message" => "Connexion partenaire réussie.",
-            "partner" => $partner
-        ]);
-    } else {
+    if (!$partner) {
         http_response_code(401);
         echo json_encode(["message" => "Login ou mot de passe incorrect."]);
+        exit();
     }
+
+    if (empty($partner['manager_password'])) {
+        http_response_code(401);
+        echo json_encode(["message" => "Aucun mot de passe défini pour ce compte. Contactez l'administration."]);
+        exit();
+    }
+
+    if (!password_verify($password, $partner['manager_password'])) {
+        http_response_code(401);
+        echo json_encode(["message" => "Login ou mot de passe incorrect."]);
+        exit();
+    }
+
+    unset($partner['manager_password']);
+    http_response_code(200);
+    echo json_encode([
+        "message" => "Connexion partenaire réussie.",
+        "partner" => $partner
+    ]);
 
 } catch (Exception $e) {
     http_response_code(500);

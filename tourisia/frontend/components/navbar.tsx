@@ -50,6 +50,7 @@ export function Navbar() {
   const [hasPartnerAccount, setHasPartnerAccount] = useState(false);
   const [showPartnerLogin, setShowPartnerLogin] = useState(false);
   const [partnerLoginData, setPartnerLoginData] = useState({ login: "", password: "" });
+  const [partnerLoginError, setPartnerLoginError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [fullPath, setFullPath] = useState("");
   const pathname = usePathname();
@@ -85,6 +86,8 @@ export function Navbar() {
 
   const handlePartnerLogin = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isLoggingIn) return;
+    setPartnerLoginError("");
     setIsLoggingIn(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}partners/partner_login.php`, {
@@ -95,14 +98,13 @@ export function Navbar() {
       const data = await res.json();
       if (res.ok) {
         localStorage.setItem("partner_session", JSON.stringify(data.partner));
-        toast.success("Espace partenaire ouvert !");
         setShowPartnerLogin(false);
         window.location.href = "/espace_partenaire";
       } else {
-        toast.error(data.message || "Identifiants incorrects.");
+        setPartnerLoginError(data.message || "Login ou mot de passe incorrect.");
       }
     } catch {
-      toast.error("Erreur de connexion au serveur.");
+      setPartnerLoginError("Erreur réseau, veuillez réessayer.");
     } finally {
       setIsLoggingIn(false);
     }
@@ -151,7 +153,7 @@ export function Navbar() {
               {user?.role !== "admin" && (
                 hasPartnerAccount ? (
                   <button
-                    onClick={() => { if (pathname !== "/espace_partenaire") setShowPartnerLogin(true); }}
+                    onClick={() => { if (pathname !== "/espace_partenaire") { setPartnerLoginError(""); setPartnerLoginData({ login: "", password: "" }); setShowPartnerLogin(true); } }}
                     className="rounded-lg border border-[#2563eb] text-[#2563eb] px-4 py-2 text-sm font-bold transition-all hover:bg-[#2563eb] hover:text-white"
                   >
                     Espace Partenaire
@@ -265,7 +267,7 @@ export function Navbar() {
               {user?.role !== "admin" && (
                 hasPartnerAccount ? (
                   <button
-                    onClick={() => { if (pathname !== "/espace_partenaire") setShowPartnerLogin(true); setMobileOpen(false); }}
+                    onClick={() => { if (pathname !== "/espace_partenaire") { setPartnerLoginError(""); setPartnerLoginData({ login: "", password: "" }); setShowPartnerLogin(true); } setMobileOpen(false); }}
                     className="rounded-lg border border-[#2563eb] text-[#2563eb] px-4 py-2 text-sm font-bold text-center"
                   >
                     Espace Partenaire
@@ -341,11 +343,17 @@ export function Navbar() {
                   placeholder="••••••••"
                 />
               </div>
+              {partnerLoginError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 flex items-start gap-2">
+                  <span className="shrink-0">⚠️</span>
+                  <span>{partnerLoginError}</span>
+                </div>
+              )}
               <button
                 type="submit" disabled={isLoggingIn}
-                className="w-full rounded-xl bg-[#2563eb] py-4 text-sm font-bold text-white transition-all hover:bg-[#1d4ed8] shadow-lg shadow-[#2563eb]/20 flex items-center justify-center gap-2"
+                className={`w-full rounded-xl py-4 text-sm font-bold text-white transition-all shadow-lg flex items-center justify-center gap-2 ${isLoggingIn ? "bg-[#2563eb]/60 cursor-not-allowed" : "bg-[#2563eb] hover:bg-[#1d4ed8] shadow-[#2563eb]/20"}`}
               >
-                {isLoggingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : "Se connecter à l'espace"}
+                {isLoggingIn ? <><Loader2 className="h-4 w-4 animate-spin" />Connexion...</> : "Se connecter à l'espace"}
               </button>
             </form>
           </div>
