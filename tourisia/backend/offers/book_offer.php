@@ -45,6 +45,29 @@ try {
 
     $stmt = $pdo->prepare("INSERT INTO reservations (user_id, offer_id, status) VALUES (?, ?, 'pending')");
     if ($stmt->execute([$data->user_id, $data->offer_id])) {
+        // Notify the partner that their offer has been reserved
+        $partnerStmt = $pdo->prepare(
+            "SELECT p.user_id, o.title
+             FROM offers o
+             JOIN partners p ON o.partner_id = p.id
+             WHERE o.id = ?"
+        );
+        $partnerStmt->execute([$data->offer_id]);
+        $partner = $partnerStmt->fetch();
+
+        if ($partner) {
+            $notifStmt = $pdo->prepare(
+                "INSERT INTO notifications (user_id, type, title, content, link)
+                 VALUES (?, 'reservation', ?, ?, ?)"
+            );
+            $notifStmt->execute([
+                $partner['user_id'], 
+                'Nouvelle réservation 🏨',
+                "Votre offre \"{$partner['title']}\" a reçu une nouvelle réservation.",
+                '/espace_partenaire?tab=reservations'
+            ]);
+        }
+
         echo json_encode(["message" => "Réservation effectuée avec succès !"]);
     } else {
         http_response_code(500);

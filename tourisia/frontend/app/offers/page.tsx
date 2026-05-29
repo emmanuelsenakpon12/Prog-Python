@@ -8,6 +8,8 @@ import {
   Star, Heart, MapPin, Search,
   X, Play, Calendar, Loader2,
   ChevronLeft, ChevronRight, MessageSquare,
+  BedDouble, Bath, Maximize2, Home, Car,
+  Wind, Waves, Wifi, UtensilsCrossed, Tv, Shield, TreePine, Coffee, Mountain,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -92,6 +94,19 @@ function OfferCardImages({
     </div>
   );
 }
+
+const EQUIPEMENTS_LIST = [
+  { key: "wifi",          label: "WiFi",              icon: Wifi },
+  { key: "piscine",       label: "Piscine",           icon: Waves },
+  { key: "climatisation", label: "Climatisation",     icon: Wind },
+  { key: "parking",       label: "Parking",           icon: Car },
+  { key: "cuisine",       label: "Cuisine équipée",   icon: UtensilsCrossed },
+  { key: "tv",            label: "TV",                icon: Tv },
+  { key: "securite",      label: "Sécurité 24h",      icon: Shield },
+  { key: "terrasse",      label: "Terrasse",          icon: TreePine },
+  { key: "petit_dejeuner",label: "Petit-déjeuner",    icon: Coffee },
+  { key: "vue_mer",       label: "Vue mer/montagne",  icon: Mountain },
+];
 
 function OffersPageContent() {
   const router = useRouter();
@@ -462,222 +477,289 @@ function OffersPageContent() {
               </div>
             </div>
 
-            <div className="p-4 sm:p-8 space-y-6 sm:space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-start">
-                {/* ── Galerie avec navigation ── */}
-                <div className="space-y-4">
-                  {selectedOffer.images && selectedOffer.images.length > 0 ? (
-                    <>
-                      <div className="relative aspect-[16/9] rounded-xl sm:rounded-2xl overflow-hidden shadow-lg border border-border group">
-                        <img
-                          src={getFileUrl(selectedOffer.images[modalImg])}
-                          alt={selectedOffer.title}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1 rounded-full">
-                          {modalImg + 1} / {selectedOffer.images.length}
-                        </div>
-                        {selectedOffer.images.length > 1 && (
+            {/* ── Modal body: herbergement rich layout vs standard ── */}
+            {selectedOffer.type === "herbergement" ? (() => {
+              const det: Record<string, any> = (selectedOffer.details && typeof selectedOffer.details === "object") ? selectedOffer.details : {};
+              const equip: string[] = Array.isArray(det.equipements)
+                ? det.equipements
+                : typeof det.equipements === "string"
+                ? det.equipements.split(",").map((s: string) => s.trim()).filter(Boolean)
+                : [];
+              const imgs: string[] = selectedOffer.images || [];
+              return (
+                <div className="p-4 sm:p-6 space-y-6">
+
+                  {/* Gallery: large photo left + 2 thumbnails right */}
+                  {imgs.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 h-60 sm:h-72 rounded-2xl overflow-hidden">
+                      <div className="col-span-2 relative group">
+                        <img src={getFileUrl(imgs[modalImg] ?? imgs[0])} alt={selectedOffer.title} className="w-full h-full object-cover" />
+                        {imgs.length > 1 && (
                           <>
-                            <button
-                              onClick={() => setModalImg((p) => (p === 0 ? selectedOffer.images.length - 1 : p - 1))}
-                              className="absolute left-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
-                            >
+                            <button onClick={() => setModalImg(p => p === 0 ? imgs.length - 1 : p - 1)} className="absolute left-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-all">
                               <ChevronLeft className="h-4 w-4" />
                             </button>
-                            <button
-                              onClick={() => setModalImg((p) => (p === selectedOffer.images.length - 1 ? 0 : p + 1))}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
-                            >
+                            <button onClick={() => setModalImg(p => p === imgs.length - 1 ? 0 : p + 1)} className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-all">
                               <ChevronRight className="h-4 w-4" />
                             </button>
+                            <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{modalImg + 1} / {imgs.length}</div>
                           </>
                         )}
                       </div>
-                      {/* Thumbnails */}
-                      {selectedOffer.images.length > 1 && (
-                        <div className="grid grid-cols-4 gap-2 sm:gap-3">
-                          {selectedOffer.images.slice(0, 4).map((img: string, idx: number) => (
-                            <div
-                              key={idx}
-                              onClick={() => setModalImg(idx)}
-                              className={`aspect-square rounded-lg sm:rounded-xl overflow-hidden border-2 cursor-pointer transition-all ${
-                                idx === modalImg ? "border-[#2563eb]" : "border-transparent hover:border-[#2563eb]/50"
-                              }`}
-                            >
-                              <img src={getFileUrl(img)} className="w-full h-full object-cover" alt="thumb" />
+                      <div className="grid grid-rows-2 gap-2">
+                        {[imgs[1], imgs[2]].map((img, i) => img ? (
+                          <div key={i} className="relative cursor-pointer overflow-hidden" onClick={() => setModalImg(i + 1)}>
+                            <img src={getFileUrl(img)} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" alt="" />
+                            {i === 1 && imgs.length > 3 && (
+                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                <span className="text-white text-xl font-bold">+{imgs.length - 3}</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : <div key={i} className="bg-muted" />)}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Quick info bar */}
+                  {(det.nb_chambres || det.nb_salles_bain || det.surface || det.type_etablissement) && (
+                    <div className="flex flex-wrap gap-x-6 gap-y-3 py-4 border-y border-border">
+                      {det.nb_chambres && <div className="flex items-center gap-2"><BedDouble className="h-5 w-5 text-[#2563eb]" /><div><p className="text-[10px] text-muted-foreground">Chambres</p><p className="text-sm font-semibold">{det.nb_chambres}</p></div></div>}
+                      {det.nb_salles_bain && <div className="flex items-center gap-2"><Bath className="h-5 w-5 text-[#2563eb]" /><div><p className="text-[10px] text-muted-foreground">Salles de bain</p><p className="text-sm font-semibold">{det.nb_salles_bain}</p></div></div>}
+                      {det.surface && <div className="flex items-center gap-2"><Maximize2 className="h-5 w-5 text-[#2563eb]" /><div><p className="text-[10px] text-muted-foreground">Surface</p><p className="text-sm font-semibold">{det.surface} m²</p></div></div>}
+                      {det.type_etablissement && <div className="flex items-center gap-2"><Home className="h-5 w-5 text-[#2563eb]" /><div><p className="text-[10px] text-muted-foreground">Type</p><p className="text-sm font-semibold capitalize">{det.type_etablissement}</p></div></div>}
+                      <div className="flex items-center gap-2"><MapPin className="h-5 w-5 text-[#2563eb]" /><div><p className="text-[10px] text-muted-foreground">Lieu</p><p className="text-sm font-semibold">{selectedOffer.location}</p></div></div>
+                    </div>
+                  )}
+
+                  {/* Main 2-col: left content + right reservation */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                    {/* Left: description + details + equipment */}
+                    <div className="lg:col-span-2 space-y-6">
+                      <section>
+                        <h2 className="text-base sm:text-lg font-bold mb-3">Description</h2>
+                        <p className="text-sm text-muted-foreground leading-relaxed">{selectedOffer.description || "Aucune description disponible."}</p>
+                      </section>
+
+                      <section className="rounded-2xl border border-border p-4 sm:p-5">
+                        <h2 className="text-base sm:text-lg font-bold mb-4">Détails du bien</h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 text-sm">
+                          <div className="flex gap-2 items-center"><span className="text-muted-foreground text-xs w-28 shrink-0">Prix / nuit</span><span className="font-semibold text-[#2563eb]">{selectedOffer.price} {selectedOffer.currency}</span></div>
+                          {det.type_etablissement && <div className="flex gap-2 items-center"><span className="text-muted-foreground text-xs w-28 shrink-0">Type</span><span className="capitalize">{det.type_etablissement}</span></div>}
+                          {det.nb_chambres && <div className="flex gap-2 items-center"><span className="text-muted-foreground text-xs w-28 shrink-0">Chambres</span><span>{det.nb_chambres}</span></div>}
+                          {det.nb_salles_bain && <div className="flex gap-2 items-center"><span className="text-muted-foreground text-xs w-28 shrink-0">Salles de bain</span><span>{det.nb_salles_bain}</span></div>}
+                          {det.nb_lits && <div className="flex gap-2 items-center"><span className="text-muted-foreground text-xs w-28 shrink-0">Lits</span><span>{det.nb_lits}</span></div>}
+                          {det.surface && <div className="flex gap-2 items-center"><span className="text-muted-foreground text-xs w-28 shrink-0">Surface</span><span>{det.surface} m²</span></div>}
+                          {(det.capacite_adultes || det.capacite_enfants) && <div className="flex gap-2 items-center"><span className="text-muted-foreground text-xs w-28 shrink-0">Capacité</span><span>{det.capacite_adultes ?? 0} adultes, {det.capacite_enfants ?? 0} enfants</span></div>}
+                          {det.checkin && <div className="flex gap-2 items-center"><span className="text-muted-foreground text-xs w-28 shrink-0">Check-in</span><span>{det.checkin}</span></div>}
+                          {det.checkout && <div className="flex gap-2 items-center"><span className="text-muted-foreground text-xs w-28 shrink-0">Check-out</span><span>{det.checkout}</span></div>}
+                          {det.animaux && <div className="flex gap-2 items-center"><span className="text-muted-foreground text-xs w-28 shrink-0">Animaux</span><span className="capitalize">{det.animaux}</span></div>}
+                          {det.fumeurs && <div className="flex gap-2 items-center"><span className="text-muted-foreground text-xs w-28 shrink-0">Fumeurs</span><span className="capitalize">{det.fumeurs}</span></div>}
+                        </div>
+                      </section>
+
+                      {equip.length > 0 && (
+                        <section>
+                          <h2 className="text-base sm:text-lg font-bold mb-4">Équipements</h2>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {EQUIPEMENTS_LIST.map(eq => {
+                              const included = equip.includes(eq.key);
+                              return (
+                                <div key={eq.key} className={`flex items-center gap-2.5 p-2.5 rounded-xl text-sm ${included ? "bg-[#2563eb]/5 text-foreground" : "text-muted-foreground/40"}`}>
+                                  <eq.icon className={`h-4 w-4 shrink-0 ${included ? "text-[#2563eb]" : ""}`} />
+                                  <span className={`text-xs ${included ? "font-medium" : "line-through"}`}>{eq.label}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </section>
+                      )}
+
+                      {selectedOffer.video && (
+                        <section className="rounded-2xl border border-[#2563eb]/20 bg-[#2563eb]/5 p-4 flex flex-col items-center gap-3 text-center">
+                          <div className="h-12 w-12 rounded-full bg-[#2563eb] text-white flex items-center justify-center"><Play className="h-5 w-5 fill-current" /></div>
+                          <a href={getFileUrl(selectedOffer.video)} target="_blank" rel="noreferrer" className="px-6 py-2.5 rounded-xl bg-[#2563eb] text-white text-xs font-bold hover:bg-[#1d4ed8] transition-all">Regarder la vidéo</a>
+                        </section>
+                      )}
+                    </div>
+
+                    {/* Right: sticky reservation widget */}
+                    <div className="lg:col-span-1">
+                      <div className="lg:sticky lg:top-4 space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 rounded-xl bg-muted/30 border border-border">
+                            <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Prix / nuit</p>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-base font-bold text-[#2563eb]">{selectedOffer.price}</span>
+                              <span className="text-[10px] font-bold">{selectedOffer.currency}</span>
+                            </div>
+                          </div>
+                          <div className="p-3 rounded-xl bg-green-500/5 border border-green-500/10">
+                            <p className="text-[9px] font-bold text-green-600 uppercase mb-1">Disponibilité</p>
+                            <p className="text-xs font-bold text-green-700">Immédiate</p>
+                          </div>
+                        </div>
+                        <div ref={reservationWidgetRef} className="p-5 rounded-2xl bg-[#2563eb] text-white space-y-4 shadow-xl shadow-[#2563eb]/20">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center"><Calendar className="h-5 w-5" /></div>
+                            <div><p className="text-[10px] text-white/70 font-bold uppercase">Réservation</p><p className="text-sm font-bold">Planifiez votre séjour</p></div>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] text-white/70 font-bold uppercase">Date d'arrivée</label>
+                            <input type="date" value={dateArrivee} min={today} onChange={(e) => { setDateArrivee(e.target.value); if (dateDepart && e.target.value >= dateDepart) setDateDepart(""); }} className="w-full rounded-lg bg-white/20 border border-white/30 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/40 [color-scheme:dark]" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] text-white/70 font-bold uppercase">Date de départ</label>
+                            <input type="date" value={dateDepart} min={dateArrivee || today} onChange={(e) => setDateDepart(e.target.value)} className="w-full rounded-lg bg-white/20 border border-white/30 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/40 [color-scheme:dark]" />
+                          </div>
+                          {peutReserver && nombreNuits > 0 && (
+                            <div className="flex items-center justify-between bg-white/10 rounded-lg px-3 py-2 text-sm">
+                              <span className="text-white/80">{nombreNuits} nuit{nombreNuits > 1 ? "s" : ""}</span>
+                              <span className="font-bold">{prixTotal.toLocaleString()} {selectedOffer.currency}</span>
+                            </div>
+                          )}
+                          {cancellationDeadline && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                              <p className="text-amber-800 font-medium text-xs">ℹ️ Politique d'annulation</p>
+                              <p className="text-amber-700 text-xs font-bold mt-1">Annulation gratuite jusqu'au {format(cancellationDeadline, "dd MMMM yyyy 'à' HH'h'mm", { locale: fr })}</p>
+                            </div>
+                          )}
+                          {reservationConfirmee && <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center"><p className="text-green-700 font-bold text-sm">Réservation confirmée !</p><p className="text-green-600 text-xs mt-1">Suivez votre réservation dans votre profil.</p></div>}
+                          {reservationError && <p className="text-red-300 text-xs text-center">{reservationError}</p>}
+                          {selectedOffer.partner_id === userPartnerId ? (
+                            <div className="w-full py-3 rounded-xl text-sm font-bold bg-transparent border border-white/40 text-white/80 cursor-not-allowed flex items-center justify-center">Ceci est votre annonce</div>
+                          ) : (
+                            <>
+                              <button onClick={handleReserver} disabled={!peutReserver || reservationConfirmee} className={`w-full py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${peutReserver && !reservationConfirmee ? "bg-white text-[#2563eb] hover:bg-blue-50" : "bg-white/30 text-white/50 cursor-not-allowed"}`}>{reservationConfirmee ? "Réservé ✓" : "Réserver"}</button>
+                              {selectedOffer.selected_plan !== "Gratuit" && (
+                                <button onClick={() => router.push(`/profile?tab=messagerie&partner_id=${selectedOffer.partner_id}`)} className="w-full py-3 rounded-xl text-sm font-bold border border-white/30 bg-white/10 hover:bg-white/20 text-white flex items-center justify-center gap-2"><MessageSquare className="h-4 w-4" />Discuter avec le partenaire</button>
+                              )}
+                              <p className="text-[10px] text-center text-white/60">En cliquant sur Réserver, vous enregistrez votre réservation auprès du partenaire.</p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })() : (
+
+              /* ── Standard layout for other offer types ── */
+              <div className="p-4 sm:p-8 space-y-6 sm:space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-start">
+                  <div className="space-y-4">
+                    {selectedOffer.images && selectedOffer.images.length > 0 ? (
+                      <>
+                        <div className="relative aspect-[16/9] rounded-xl sm:rounded-2xl overflow-hidden shadow-lg border border-border group">
+                          <img src={getFileUrl(selectedOffer.images[modalImg])} alt={selectedOffer.title} className="w-full h-full object-cover" />
+                          <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1 rounded-full">{modalImg + 1} / {selectedOffer.images.length}</div>
+                          {selectedOffer.images.length > 1 && (
+                            <>
+                              <button onClick={() => setModalImg((p) => (p === 0 ? selectedOffer.images.length - 1 : p - 1))} className="absolute left-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"><ChevronLeft className="h-4 w-4" /></button>
+                              <button onClick={() => setModalImg((p) => (p === selectedOffer.images.length - 1 ? 0 : p + 1))} className="absolute right-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"><ChevronRight className="h-4 w-4" /></button>
+                            </>
+                          )}
+                        </div>
+                        {selectedOffer.images.length > 1 && (
+                          <div className="grid grid-cols-4 gap-2 sm:gap-3">
+                            {selectedOffer.images.slice(0, 4).map((img: string, idx: number) => (
+                              <div key={idx} onClick={() => setModalImg(idx)} className={`aspect-square rounded-lg sm:rounded-xl overflow-hidden border-2 cursor-pointer transition-all ${idx === modalImg ? "border-[#2563eb]" : "border-transparent hover:border-[#2563eb]/50"}`}>
+                                <img src={getFileUrl(img)} className="w-full h-full object-cover" alt="thumb" />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="aspect-[16/9] rounded-xl bg-muted flex items-center justify-center"><MapPin className="h-12 w-12 text-muted-foreground/30" /></div>
+                    )}
+                    {selectedOffer.video && (
+                      <div className="rounded-xl sm:rounded-2xl border border-[#2563eb]/20 bg-[#2563eb]/5 p-4 sm:p-6 flex flex-col items-center gap-3 text-center">
+                        <div className="h-10 w-10 sm:h-14 sm:w-14 rounded-full bg-[#2563eb] text-white flex items-center justify-center"><Play className="h-4 w-4 sm:h-6 sm:w-6 fill-current" /></div>
+                        <a href={getFileUrl(selectedOffer.video)} target="_blank" rel="noreferrer" className="px-5 py-2 sm:px-6 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#2563eb] text-white text-[11px] sm:text-xs font-bold hover:bg-[#1d4ed8] transition-all">Regarder la vidéo</a>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-6 sm:space-y-8">
+                    <div className="space-y-3 sm:space-y-4">
+                      <h3 className="text-base sm:text-lg font-bold">A propos de l'offre</h3>
+                      <div className="prose prose-sm text-muted-foreground leading-relaxed text-xs sm:text-sm">{selectedOffer.description || "Aucune description disponible pour le moment."}</div>
+                    </div>
+
+                    {selectedOffer.details && typeof selectedOffer.details === "object" && Object.keys(selectedOffer.details).length > 0 && (
+                      <div className="space-y-3">
+                        <h3 className="text-base sm:text-lg font-bold">Caractéristiques</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(selectedOffer.details).map(([key, val], idx) => (
+                            <div key={idx} className="bg-muted/50 border border-border px-3 py-1.5 rounded-lg text-xs font-semibold text-foreground flex items-center gap-2">
+                              {key} <span className="text-muted-foreground font-normal">•</span> {String(val)}
                             </div>
                           ))}
                         </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                      <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-muted/30 border border-border">
+                        <p className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase mb-1">Prix de base</p>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-base sm:text-xl font-bold text-[#2563eb]">{selectedOffer.price}</span>
+                          <span className="text-[10px] sm:text-xs font-bold">{selectedOffer.currency}</span>
+                        </div>
+                      </div>
+                      <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-green-500/5 border border-green-500/10">
+                        <p className="text-[9px] sm:text-[10px] font-bold text-green-600 uppercase mb-1">Disponibilité</p>
+                        <p className="text-xs sm:text-sm font-bold text-green-700">Immédiate</p>
+                      </div>
+                    </div>
+
+                    <div ref={reservationWidgetRef} className="p-5 sm:p-6 rounded-xl sm:rounded-2xl bg-[#2563eb] text-white space-y-4 shadow-xl shadow-[#2563eb]/20">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-white/20 flex items-center justify-center"><Calendar className="h-4 w-4 sm:h-5 sm:w-5" /></div>
+                        <div><p className="text-[10px] sm:text-xs text-white/70 font-bold uppercase">Réservation</p><p className="text-xs sm:text-sm font-bold">Planifiez votre visite</p></div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-white/70 font-bold uppercase">Date d'arrivée</label>
+                        <input type="date" value={dateArrivee} min={today} onChange={(e) => { setDateArrivee(e.target.value); if (dateDepart && e.target.value >= dateDepart) setDateDepart(""); }} className="w-full rounded-lg bg-white/20 border border-white/30 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/40 [color-scheme:dark]" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-white/70 font-bold uppercase">Date de départ</label>
+                        <input type="date" value={dateDepart} min={dateArrivee || today} onChange={(e) => setDateDepart(e.target.value)} className="w-full rounded-lg bg-white/20 border border-white/30 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/40 [color-scheme:dark]" />
+                      </div>
+                      {peutReserver && nombreNuits > 0 && (
+                        <div className="flex items-center justify-between bg-white/10 rounded-lg px-3 py-2 text-sm">
+                          <span className="text-white/80">{nombreNuits} nuit{nombreNuits > 1 ? "s" : ""}</span>
+                          <span className="font-bold">{prixTotal.toLocaleString()} {selectedOffer.currency}</span>
+                        </div>
                       )}
-                    </>
-                  ) : (
-                    <div className="aspect-[16/9] rounded-xl bg-muted flex items-center justify-center">
-                      <MapPin className="h-12 w-12 text-muted-foreground/30" />
+                      {cancellationDeadline && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                          <p className="text-amber-800 font-medium text-xs">ℹ️ Politique d'annulation</p>
+                          <p className="text-amber-700 text-xs font-bold mt-1">Annulation gratuite jusqu'au {format(cancellationDeadline, "dd MMMM yyyy 'à' HH'h'mm", { locale: fr })}</p>
+                          <p className="text-amber-600 text-[10px] mt-1">⚠️ Passé ce délai, l'annulation ne sera plus possible.</p>
+                        </div>
+                      )}
+                      {reservationConfirmee && <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center"><p className="text-green-700 font-bold text-sm">Réservation confirmée !</p><p className="text-green-600 text-xs mt-1">Vous pouvez suivre votre réservation dans votre profil.</p></div>}
+                      {reservationError && <p className="text-red-300 text-xs text-center">{reservationError}</p>}
+                      {selectedOffer.partner_id === userPartnerId ? (
+                        <div className="w-full py-3 sm:py-4 rounded-lg sm:rounded-xl text-[12px] sm:text-sm font-bold bg-transparent border border-white/40 text-white/80 cursor-not-allowed flex items-center justify-center">Ceci est votre annonce</div>
+                      ) : (
+                        <>
+                          <button onClick={handleReserver} disabled={!peutReserver || reservationConfirmee} className={`w-full py-3 sm:py-4 rounded-lg sm:rounded-xl text-[12px] sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${peutReserver && !reservationConfirmee ? "bg-white text-[#2563eb] hover:bg-blue-50 cursor-pointer" : "bg-white/30 text-white/50 cursor-not-allowed"}`}>{reservationConfirmee ? "Réservé ✓" : "Réserver"}</button>
+                          {selectedOffer.selected_plan !== "Gratuit" && (
+                            <button onClick={() => router.push(`/profile?tab=messagerie&partner_id=${selectedOffer.partner_id}`)} className="w-full py-3 sm:py-4 rounded-lg sm:rounded-xl text-[12px] sm:text-sm font-bold transition-all flex items-center justify-center gap-2 border border-white/30 bg-white/10 hover:bg-white/20 text-white"><MessageSquare className="h-4 w-4" />Discuter avec le partenaire</button>
+                          )}
+                          <p className="text-[9px] sm:text-[10px] text-center text-white/60">En cliquant sur Réserver, vous enregistrez votre réservation auprès du partenaire.</p>
+                        </>
+                      )}
                     </div>
-                  )}
-
-                  {selectedOffer.video && (
-                    <div className="rounded-xl sm:rounded-2xl border border-[#2563eb]/20 bg-[#2563eb]/5 p-4 sm:p-6 flex flex-col items-center gap-3 text-center">
-                      <div className="h-10 w-10 sm:h-14 sm:w-14 rounded-full bg-[#2563eb] text-white flex items-center justify-center">
-                        <Play className="h-4 w-4 sm:h-6 sm:w-6 fill-current" />
-                      </div>
-                      <a
-                        href={getFileUrl(selectedOffer.video)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-5 py-2 sm:px-6 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#2563eb] text-white text-[11px] sm:text-xs font-bold hover:bg-[#1d4ed8] transition-all"
-                      >
-                        Regarder la vidéo
-                      </a>
-                    </div>
-                  )}
-                </div>
-
-                {/* ── Infos + réservation ── */}
-                <div className="space-y-6 sm:space-y-8">
-                  <div className="space-y-3 sm:space-y-4">
-                    <h3 className="text-base sm:text-lg font-bold">A propos de l'offre</h3>
-                    <div className="prose prose-sm text-muted-foreground leading-relaxed text-xs sm:text-sm">
-                      {selectedOffer.description || "Aucune description disponible pour le moment."}
-                    </div>
-                  </div>
-
-                  {selectedOffer.details && typeof selectedOffer.details === "object" && Object.keys(selectedOffer.details).length > 0 && (
-                    <div className="space-y-3">
-                      <h3 className="text-base sm:text-lg font-bold">Caractéristiques</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {Object.entries(selectedOffer.details).map(([key, val], idx) => (
-                          <div key={idx} className="bg-muted/50 border border-border px-3 py-1.5 rounded-lg text-xs font-semibold text-foreground flex items-center gap-2">
-                            {key} <span className="text-muted-foreground font-normal">•</span> {String(val)}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-muted/30 border border-border">
-                      <p className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase mb-1">Prix de base</p>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-base sm:text-xl font-bold text-[#2563eb]">{selectedOffer.price}</span>
-                        <span className="text-[10px] sm:text-xs font-bold">{selectedOffer.currency}</span>
-                      </div>
-                    </div>
-                    <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-green-500/5 border border-green-500/10">
-                      <p className="text-[9px] sm:text-[10px] font-bold text-green-600 uppercase mb-1">Disponibilité</p>
-                      <p className="text-xs sm:text-sm font-bold text-green-700">Immédiate</p>
-                    </div>
-                  </div>
-
-                  <div ref={reservationWidgetRef} className="p-5 sm:p-6 rounded-xl sm:rounded-2xl bg-[#2563eb] text-white space-y-4 shadow-xl shadow-[#2563eb]/20">
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-white/20 flex items-center justify-center">
-                        <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] sm:text-xs text-white/70 font-bold uppercase">Réservation</p>
-                        <p className="text-xs sm:text-sm font-bold">Planifiez votre visite</p>
-                      </div>
-                    </div>
-
-                    {/* Date d'arrivée */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-white/70 font-bold uppercase">Date d'arrivée</label>
-                      <input
-                        type="date"
-                        value={dateArrivee}
-                        min={today}
-                        onChange={(e) => {
-                          setDateArrivee(e.target.value);
-                          if (dateDepart && e.target.value >= dateDepart) setDateDepart("");
-                        }}
-                        className="w-full rounded-lg bg-white/20 border border-white/30 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/40 [color-scheme:dark]"
-                      />
-                    </div>
-
-                    {/* Date de départ */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-white/70 font-bold uppercase">Date de départ</label>
-                      <input
-                        type="date"
-                        value={dateDepart}
-                        min={dateArrivee || today}
-                        onChange={(e) => setDateDepart(e.target.value)}
-                        className="w-full rounded-lg bg-white/20 border border-white/30 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/40 [color-scheme:dark]"
-                      />
-                    </div>
-
-                    {/* Résumé nuits + prix */}
-                    {peutReserver && nombreNuits > 0 && (
-                      <div className="flex items-center justify-between bg-white/10 rounded-lg px-3 py-2 text-sm">
-                        <span className="text-white/80">{nombreNuits} nuit{nombreNuits > 1 ? "s" : ""}</span>
-                        <span className="font-bold">{prixTotal.toLocaleString()} {selectedOffer.currency}</span>
-                      </div>
-                    )}
-
-                    {/* Politique d'annulation */}
-                    {cancellationDeadline && (
-                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                        <p className="text-amber-800 font-medium text-xs">ℹ️ Politique d'annulation</p>
-                        <p className="text-amber-700 text-xs font-bold mt-1">
-                          Annulation gratuite jusqu'au{" "}
-                          {format(cancellationDeadline, "dd MMMM yyyy 'à' HH'h'mm", { locale: fr })}
-                        </p>
-                        <p className="text-amber-600 text-[10px] mt-1">
-                          ⚠️ Passé ce délai, l'annulation ne sera plus possible.
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Confirmation */}
-                    {reservationConfirmee && (
-                      <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
-                        <p className="text-green-700 font-bold text-sm">Réservation confirmée !</p>
-                        <p className="text-green-600 text-xs mt-1">Vous pouvez suivre votre réservation dans votre profil.</p>
-                      </div>
-                    )}
-
-                    {/* Erreur */}
-                    {reservationError && (
-                      <p className="text-red-300 text-xs text-center">{reservationError}</p>
-                    )}
-
-                    {selectedOffer.partner_id === userPartnerId ? (
-                      <div className="w-full py-3 sm:py-4 rounded-lg sm:rounded-xl text-[12px] sm:text-sm font-bold bg-transparent border border-white/40 text-white/80 cursor-not-allowed flex items-center justify-center">
-                        Ceci est votre annonce
-                      </div>
-                    ) : (
-                      <>
-                        <button
-                          onClick={handleReserver}
-                          disabled={!peutReserver || reservationConfirmee}
-                          className={`w-full py-3 sm:py-4 rounded-lg sm:rounded-xl text-[12px] sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-                            peutReserver && !reservationConfirmee
-                              ? "bg-white text-[#2563eb] hover:bg-blue-50 cursor-pointer"
-                              : "bg-white/30 text-white/50 cursor-not-allowed"
-                          }`}
-                        >
-                          {reservationConfirmee ? "Réservé ✓" : "Réserver"}
-                        </button>
-                        {selectedOffer.selected_plan !== "Gratuit" && (
-                          <button
-                            onClick={() => router.push(`/profile?tab=messagerie&partner_id=${selectedOffer.partner_id}`)}
-                            className="w-full py-3 sm:py-4 rounded-lg sm:rounded-xl text-[12px] sm:text-sm font-bold transition-all flex items-center justify-center gap-2 border border-white/30 bg-white/10 hover:bg-white/20 text-white"
-                          >
-                            <MessageSquare className="h-4 w-4" />
-                            Discuter avec le partenaire
-                          </button>
-                        )}
-                        <p className="text-[9px] sm:text-[10px] text-center text-white/60">
-                          En cliquant sur Réserver, vous enregistrez votre réservation auprès du partenaire.
-                        </p>
-                      </>
-                    )}
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <div className="sticky bottom-0 p-4 sm:p-6 border-t border-border bg-card/95 backdrop-blur-sm flex items-center justify-end">
               <button

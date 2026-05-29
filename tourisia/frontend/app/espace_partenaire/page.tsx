@@ -41,6 +41,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import { ServiceTypeSelector } from "@/components/forms/ServiceTypeSelector";
+import { HebergementForm } from "@/components/forms/HebergementForm";
+import { TransportForm } from "@/components/forms/TransportForm";
+import { ActiviteForm } from "@/components/forms/ActiviteForm";
+import { VolForm } from "@/components/forms/VolForm";
 
 export default function PartnerDashboard() {
   const [partner, setPartner] = useState<any>(null);
@@ -64,6 +69,8 @@ export default function PartnerDashboard() {
   const [showOfferModal, setShowOfferModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [formStep, setFormStep] = useState(1);
+  const [bannerIndex, setBannerIndex] = useState(0);
   const [newOffer, setNewOffer] = useState({
     type: "herbergement",
     title: "",
@@ -85,6 +92,10 @@ export default function PartnerDashboard() {
   // Reservation states
   const [reservations, setReservations] = useState<any[]>([]);
   const [loadingReservations, setLoadingReservations] = useState(false);
+
+  // Notification badge counts
+  const [newReservations, setNewReservations] = useState(0);
+  const [newMessages, setNewMessages] = useState(0);
 
   // Messaging states
   const [conversations, setConversations] = useState<any[]>([]);
@@ -146,6 +157,23 @@ export default function PartnerDashboard() {
       toast.error("Erreur réseau.");
     }
   };
+
+  // Notification polling (every 30s)
+  useEffect(() => {
+    if (!partner) return;
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}partners/get_notifications.php?partner_id=${partner.id}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (activeTab !== "reservations") setNewReservations(data.new_reservations || 0);
+        if (activeTab !== "messagerie") setNewMessages(data.new_messages || 0);
+      } catch { /* silent */ }
+    };
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [partner, activeTab]);
 
   // Real-time Polling for Partner Messaging
   useEffect(() => {
@@ -260,6 +288,29 @@ export default function PartnerDashboard() {
       toast.error("Erreur lors de l'envoi du message.");
     } finally {
       setSendingMessage(false);
+    }
+  };
+
+  const markAsRead = async (type: string) => {
+    if (!partner) return;
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}partners/mark_read.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ partner_id: partner.id, type }),
+      });
+    } catch { /* silent */ }
+  };
+
+  const handleTabClick = (tabId: string) => {
+    setActiveTab(tabId);
+    if (tabId === "reservations") {
+      setNewReservations(0);
+      markAsRead("reservations");
+    }
+    if (tabId === "messagerie") {
+      setNewMessages(0);
+      markAsRead("messages");
     }
   };
 
@@ -549,7 +600,8 @@ export default function PartnerDashboard() {
           body: JSON.stringify({
             ...newOffer,
             partner_id: partner.id,
-            id: editingId // for update
+            id: editingId, // for update
+            banner_index: bannerIndex,
           }),
         },
       );
@@ -558,6 +610,8 @@ export default function PartnerDashboard() {
         toast.success(editingId ? "Offre mise à jour !" : "Offre publiée !");
         setShowOfferModal(false);
         setEditingId(null);
+        setFormStep(1);
+        setBannerIndex(0);
         setNewOffer({
           type: "herbergement",
           title: "",
@@ -593,6 +647,8 @@ export default function PartnerDashboard() {
       video: offer.video || "",
       details: offer.details || {},
     });
+    setFormStep(2);
+    setBannerIndex(0);
     setShowOfferModal(true);
   };
 
@@ -690,6 +746,15 @@ export default function PartnerDashboard() {
     );
   };
 
+  const NotifBadge = ({ count }: { count: number }) => {
+    if (!count) return null;
+    return (
+      <span className="ml-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 animate-pulse">
+        {count > 99 ? "99+" : count}
+      </span>
+    );
+  };
+
   if (!partner) return null;
 
   const navItems = [
@@ -743,7 +808,7 @@ export default function PartnerDashboard() {
               {navItems.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => handleTabClick(item.id)}
                   className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-all relative whitespace-nowrap ${activeTab === item.id
                     ? "text-[#2563eb]"
                     : "text-muted-foreground hover:text-foreground"
@@ -751,6 +816,8 @@ export default function PartnerDashboard() {
                 >
                   <item.icon className="h-4 w-4" />
                   {item.label}
+                  {item.id === "reservations" && <NotifBadge count={newReservations} />}
+                  {item.id === "messagerie" && <NotifBadge count={newMessages} />}
                   {activeTab === item.id && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#2563eb] rounded-t-full" />
                   )}
@@ -901,6 +968,8 @@ export default function PartnerDashboard() {
                             video: "",
                             details: {},
                           });
+                          setFormStep(1);
+                          setBannerIndex(0);
                           setShowOfferModal(true);
                         }}
                         className={`rounded-xl px-6 py-2.5 text-xs font-bold transition-all shadow-lg ${Number(partner.validation) !== 1
@@ -1033,6 +1102,8 @@ export default function PartnerDashboard() {
                         video: "",
                         details: {},
                       });
+                      setFormStep(1);
+                      setBannerIndex(0);
                       setShowOfferModal(true);
                     }}
                     className={`rounded-xl px-6 py-2.5 text-sm font-bold transition-all shadow-lg flex items-center gap-2 ${Number(partner.validation) === 0
@@ -1795,14 +1866,15 @@ export default function PartnerDashboard() {
           showOfferModal && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-sm animate-in fade-in duration-200">
               <div className="bg-white w-full sm:max-w-3xl h-full sm:h-[90vh] sm:rounded-3xl overflow-hidden flex flex-col shadow-2xl">
+                {/* Sticky Header */}
                 <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border bg-white sticky top-0 z-10">
                   <div>
                     <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
                       <Plus className="h-5 w-5 text-[#2563eb]" />
-                      Nouvelle Publication
+                      {editingId ? "Modifier la publication" : "Nouvelle Publication"}
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      Remplissez les détails de votre offre pour la mettre en ligne.
+                      Étape {formStep} sur 4
                     </p>
                   </div>
                   <button
@@ -1813,233 +1885,405 @@ export default function PartnerDashboard() {
                   </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-8">
-                  <form onSubmit={handleSubmitOffer} className="space-y-8">
-                    {/* Basic Info Section */}
-                    <div className="space-y-4">
-                      <h4 className="text-sm font-bold text-foreground border-l-4 border-[#2563eb] pl-3">
-                        Informations Générales
-                      </h4>
-                      <div className="grid gap-6 md:grid-cols-2">
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-muted-foreground uppercase">
-                            Type d'offre
-                          </label>
-                          <select
-                            value={newOffer.type}
-                            onChange={(e) =>
-                              setNewOffer({ ...newOffer, type: e.target.value })
-                            }
-                            className="w-full rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb] outline-none transition-all"
-                          >
-                            <option value="herbergement">Hébergement</option>
-                            <option value="transport">Transport</option>
-                            <option value="activite">Activité</option>
-                            <option value="circuit">Circuit</option>
-                            <option value="autre">Autre</option>
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-muted-foreground uppercase">
-                            Titre de la publication *
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Ex: Villa de luxe au bord de mer"
-                            required
-                            value={newOffer.title}
-                            onChange={(e) =>
-                              setNewOffer({ ...newOffer, title: e.target.value })
-                            }
-                            className="w-full rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb] outline-none transition-all"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-muted-foreground uppercase">
-                          Description
-                        </label>
-                        <textarea
-                          rows={4}
-                          placeholder="Décrivez votre offre en détail..."
-                          value={newOffer.description}
-                          onChange={(e) =>
-                            setNewOffer({ ...newOffer, description: e.target.value })
-                          }
-                          className="w-full rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb] outline-none transition-all"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Pricing & Location */}
-                    <div className="grid gap-6 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-muted-foreground uppercase">
-                          Lieu *
-                        </label>
-                        <div className="relative">
-                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <input
-                            type="text"
-                            placeholder="Ville, Quartier, Pays"
-                            required
-                            value={newOffer.location}
-                            onChange={(e) =>
-                              setNewOffer({ ...newOffer, location: e.target.value })
-                            }
-                            className="w-full pl-10 rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb] outline-none transition-all"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-muted-foreground uppercase">
-                          Prix *
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            type="number"
-                            placeholder="0.00"
-                            required
-                            value={newOffer.price}
-                            onChange={(e) =>
-                              setNewOffer({ ...newOffer, price: e.target.value })
-                            }
-                            className="flex-1 rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb] outline-none transition-all"
-                          />
-                          <select
-                            value={newOffer.currency}
-                            onChange={(e) =>
-                              setNewOffer({ ...newOffer, currency: e.target.value })
-                            }
-                            className="w-24 rounded-xl border border-border bg-muted/30 px-2 py-3 text-sm font-bold focus:border-[#2563eb] outline-none transition-all"
-                          >
-                            <option value="CFA">CFA</option>
-                            <option value="EUR">EUR</option>
-                            <option value="USD">USD</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Media Section */}
-                    <div className="space-y-4">
-                      <h4 className="text-sm font-bold text-foreground border-l-4 border-[#2563eb] pl-3 flex items-center justify-between">
-                        Médias (Images & Vidéo)
-                        <span className="text-[10px] text-muted-foreground font-normal">
-                          Max 5 images · 1 vidéo
-                        </span>
-                      </h4>
-
-                      {/* Image Grid */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                        {newOffer.images.map((img, idx) => (
-                          <div
-                            key={idx}
-                            className="group relative aspect-square rounded-xl border border-border bg-muted overflow-hidden"
-                          >
-                            <img
-                              src={`${process.env.NEXT_PUBLIC_API_URL}${img}`}
-                              className="w-full h-full object-cover"
-                              alt={`Preview ${idx + 1}`}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeImage(idx)}
-                              className="absolute top-1 right-1 p-1.5 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
-                        {newOffer.images.length < 5 && (
-                          <label className="aspect-square rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-muted/50 transition-all hover:border-[#2563eb]/50">
-                            <Upload className="h-5 w-5 text-muted-foreground" />
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase">
-                              Ajouter
-                            </span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => handleMediaUpload(e, "image")}
-                              disabled={isUploading}
-                            />
-                          </label>
-                        )}
-                      </div>
-
-                      {/* Video Upload */}
-                      <div className="space-y-3">
-                        <label className="text-xs font-bold text-muted-foreground uppercase block">
-                          Vidéo promotionnelle
-                        </label>
-                        <div className="relative">
-                          {newOffer.video ? (
-                            <div className="flex items-center justify-between p-4 rounded-xl border border-[#2563eb]/30 bg-[#2563eb]/5">
-                              <div className="flex items-center gap-3">
-                                <Video className="h-5 w-5 text-[#2563eb]" />
-                                <span className="text-sm font-medium truncate max-w-[200px]">
-                                  Vidéo chargée
+                {/* Sticky Progress Bar */}
+                <div className="px-4 sm:px-6 py-4 border-b border-border bg-white sticky top-[73px] z-10">
+                  {(() => {
+                    const steps = ["Type", "Détails", "Médias", "Confirmation"];
+                    return (
+                      <div className="flex items-center gap-0">
+                        {steps.map((label, i) => {
+                          const stepNum = i + 1;
+                          const isCompleted = formStep > stepNum;
+                          const isActive = formStep === stepNum;
+                          return (
+                            <div key={stepNum} className="flex items-center flex-1 last:flex-none">
+                              <div className="flex flex-col items-center gap-1">
+                                <div
+                                  className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                                    isCompleted
+                                      ? "bg-[#2563eb] text-white"
+                                      : isActive
+                                      ? "bg-[#2563eb] text-white ring-4 ring-[#2563eb]/20"
+                                      : "border-2 border-border text-muted-foreground"
+                                  }`}
+                                >
+                                  {isCompleted ? <Check className="h-4 w-4" /> : stepNum}
+                                </div>
+                                <span className={`text-[10px] font-semibold hidden sm:block ${isActive ? "text-[#2563eb]" : "text-muted-foreground"}`}>
+                                  {label}
                                 </span>
                               </div>
+                              {i < steps.length - 1 && (
+                                <div className={`flex-1 h-0.5 mx-1 mb-4 rounded-full transition-all ${formStep > stepNum ? "bg-[#2563eb]" : "bg-border"}`} />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Scrollable Body */}
+                <div className="flex-1 overflow-y-auto p-4 sm:p-8">
+                  <form onSubmit={handleSubmitOffer}>
+
+                    {/* Step 1: Type */}
+                    {formStep === 1 && (
+                      <div className="space-y-6">
+                        <ServiceTypeSelector
+                          selected={newOffer.type}
+                          onSelect={(t) => setNewOffer({ ...newOffer, type: t })}
+                        />
+                      </div>
+                    )}
+
+                    {/* Step 2: Details */}
+                    {formStep === 2 && (
+                      <div className="space-y-6">
+                        <div className="space-y-4">
+                          <h4 className="text-sm font-bold text-foreground border-l-4 border-[#2563eb] pl-3">
+                            Informations Générales
+                          </h4>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-muted-foreground uppercase">
+                              Titre de la publication *
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Ex: Villa de luxe au bord de mer"
+                              value={newOffer.title}
+                              onChange={(e) => setNewOffer({ ...newOffer, title: e.target.value })}
+                              className="w-full rounded-xl border border-border bg-muted/30 px-4 py-2.5 text-sm focus:border-[#2563eb] focus:outline-none transition-all"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-muted-foreground uppercase">
+                              Description
+                            </label>
+                            <textarea
+                              rows={3}
+                              placeholder="Décrivez votre offre en détail..."
+                              value={newOffer.description}
+                              onChange={(e) => setNewOffer({ ...newOffer, description: e.target.value })}
+                              className="w-full rounded-xl border border-border bg-muted/30 px-4 py-2.5 text-sm focus:border-[#2563eb] focus:outline-none transition-all"
+                            />
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-muted-foreground uppercase">
+                                Lieu *
+                              </label>
+                              <div className="relative">
+                                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <input
+                                  type="text"
+                                  placeholder="Ville, Quartier, Pays"
+                                  value={newOffer.location}
+                                  onChange={(e) => setNewOffer({ ...newOffer, location: e.target.value })}
+                                  className="w-full pl-10 rounded-xl border border-border bg-muted/30 px-4 py-2.5 text-sm focus:border-[#2563eb] focus:outline-none transition-all"
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-muted-foreground uppercase">
+                                Prix *
+                              </label>
+                              <div className="flex gap-2">
+                                <input
+                                  type="number"
+                                  placeholder="0.00"
+                                  value={newOffer.price}
+                                  onChange={(e) => setNewOffer({ ...newOffer, price: e.target.value })}
+                                  className="flex-1 rounded-xl border border-border bg-muted/30 px-4 py-2.5 text-sm focus:border-[#2563eb] focus:outline-none transition-all"
+                                />
+                                <select
+                                  value={newOffer.currency}
+                                  onChange={(e) => setNewOffer({ ...newOffer, currency: e.target.value })}
+                                  className="w-24 rounded-xl border border-border bg-muted/30 px-2 py-2.5 text-sm font-bold focus:border-[#2563eb] focus:outline-none transition-all"
+                                >
+                                  <option value="CFA">CFA</option>
+                                  <option value="EUR">EUR</option>
+                                  <option value="USD">USD</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {newOffer.type === "herbergement" && (
+                          <HebergementForm
+                            details={newOffer.details as Record<string, any>}
+                            onChange={(field, value) =>
+                              setNewOffer((prev) => ({
+                                ...prev,
+                                details: { ...(prev.details as Record<string, any>), [field]: value },
+                              }))
+                            }
+                          />
+                        )}
+                        {newOffer.type === "transport" && (
+                          <TransportForm
+                            details={newOffer.details as Record<string, any>}
+                            onChange={(field, value) =>
+                              setNewOffer((prev) => ({
+                                ...prev,
+                                details: { ...(prev.details as Record<string, any>), [field]: value },
+                              }))
+                            }
+                          />
+                        )}
+                        {newOffer.type === "activite" && (
+                          <ActiviteForm
+                            details={newOffer.details as Record<string, any>}
+                            onChange={(field, value) =>
+                              setNewOffer((prev) => ({
+                                ...prev,
+                                details: { ...(prev.details as Record<string, any>), [field]: value },
+                              }))
+                            }
+                          />
+                        )}
+                        {newOffer.type === "vol" && (
+                          <VolForm
+                            details={newOffer.details as Record<string, any>}
+                            onChange={(field, value) =>
+                              setNewOffer((prev) => ({
+                                ...prev,
+                                details: { ...(prev.details as Record<string, any>), [field]: value },
+                              }))
+                            }
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    {/* Step 3: Media */}
+                    {formStep === 3 && (
+                      <div className="space-y-6">
+                        <h4 className="text-sm font-bold text-foreground border-l-4 border-[#2563eb] pl-3 flex items-center justify-between">
+                          Médias (Images & Vidéo)
+                          <span className="text-[10px] text-muted-foreground font-normal">
+                            Max 5 images · 1 vidéo
+                          </span>
+                        </h4>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                          {newOffer.images.map((img, idx) => (
+                            <div
+                              key={idx}
+                              className="group relative aspect-square rounded-xl border border-border bg-muted overflow-hidden"
+                            >
+                              <img
+                                src={`${process.env.NEXT_PUBLIC_API_URL}${img}`}
+                                className="w-full h-full object-cover"
+                                alt={`Preview ${idx + 1}`}
+                              />
                               <button
                                 type="button"
-                                onClick={() =>
-                                  setNewOffer({ ...newOffer, video: "" })
-                                }
-                                className="text-xs font-bold text-red-500 hover:underline"
+                                onClick={() => removeImage(idx)}
+                                className="absolute top-1 right-1 p-1.5 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100"
                               >
-                                Supprimer
+                                <X className="h-3 w-3" />
                               </button>
                             </div>
-                          ) : (
-                            <label className="flex items-center justify-center gap-3 w-full p-6 rounded-xl border-2 border-dashed border-border hover:bg-muted/50 transition-all cursor-pointer">
-                              <Video className="h-5 w-5 text-muted-foreground" />
-                              <div className="text-left">
-                                <p className="text-sm font-bold">Charger une vidéo</p>
-                                <p className="text-xs text-muted-foreground">
-                                  MP4, WebM ou MOV (Max 50MB)
-                                </p>
-                              </div>
+                          ))}
+                          {newOffer.images.length < 5 && (
+                            <label className="aspect-square rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-muted/50 transition-all hover:border-[#2563eb]/50">
+                              <Upload className="h-5 w-5 text-muted-foreground" />
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                                Ajouter
+                              </span>
                               <input
                                 type="file"
-                                accept="video/*"
+                                accept="image/*"
                                 className="hidden"
-                                onChange={(e) => handleMediaUpload(e, "video")}
+                                onChange={(e) => handleMediaUpload(e, "image")}
                                 disabled={isUploading}
                               />
                             </label>
                           )}
-                          {isUploading && (
-                            <div className="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center rounded-xl">
-                              <Loader2 className="h-6 w-6 animate-spin text-[#2563eb]" />
+                        </div>
+
+                        {newOffer.images.length > 0 && (
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-muted-foreground uppercase block">
+                              Image de bannière (couverture)
+                            </label>
+                            <div className="flex flex-wrap gap-3">
+                              {newOffer.images.map((_, idx) => (
+                                <label key={idx} className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="radio"
+                                    name="banner_index"
+                                    checked={bannerIndex === idx}
+                                    onChange={() => setBannerIndex(idx)}
+                                    className="accent-[#2563eb]"
+                                  />
+                                  <span className="text-xs font-semibold text-foreground">
+                                    Image {idx + 1}
+                                  </span>
+                                </label>
+                              ))}
                             </div>
-                          )}
+                          </div>
+                        )}
+
+                        <div className="space-y-3">
+                          <label className="text-xs font-bold text-muted-foreground uppercase block">
+                            Vidéo promotionnelle
+                          </label>
+                          <div className="relative">
+                            {newOffer.video ? (
+                              <div className="flex items-center justify-between p-4 rounded-xl border border-[#2563eb]/30 bg-[#2563eb]/5">
+                                <div className="flex items-center gap-3">
+                                  <Video className="h-5 w-5 text-[#2563eb]" />
+                                  <span className="text-sm font-medium truncate max-w-[200px]">
+                                    Vidéo chargée
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setNewOffer({ ...newOffer, video: "" })}
+                                  className="text-xs font-bold text-red-500 hover:underline"
+                                >
+                                  Supprimer
+                                </button>
+                              </div>
+                            ) : (
+                              <label className="flex items-center justify-center gap-3 w-full p-6 rounded-xl border-2 border-dashed border-border hover:bg-muted/50 transition-all cursor-pointer">
+                                <Video className="h-5 w-5 text-muted-foreground" />
+                                <div className="text-left">
+                                  <p className="text-sm font-bold">Charger une vidéo</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    MP4, WebM ou MOV (Max 50MB)
+                                  </p>
+                                </div>
+                                <input
+                                  type="file"
+                                  accept="video/*"
+                                  className="hidden"
+                                  onChange={(e) => handleMediaUpload(e, "video")}
+                                  disabled={isUploading}
+                                />
+                              </label>
+                            )}
+                            {isUploading && (
+                              <div className="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center rounded-xl">
+                                <Loader2 className="h-6 w-6 animate-spin text-[#2563eb]" />
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
 
-                    {/* Actions */}
-                    <div className="flex gap-4 pt-4 sticky bottom-0 bg-white border-t border-border mt-8 pt-6">
-                      <button
-                        type="button"
-                        onClick={() => setShowOfferModal(false)}
-                        className="flex-1 rounded-xl border border-border py-4 text-sm font-bold hover:bg-muted transition-all"
-                      >
-                        Annuler
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isLoading || isUploading}
-                        className="flex-[2] rounded-xl bg-[#2563eb] py-4 text-sm font-bold text-white hover:bg-[#1d4ed8] shadow-lg shadow-[#2563eb]/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                      >
-                        {isLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Check className="h-4 w-4" />
-                        )}
-                        Publier l'offre
-                      </button>
+                    {/* Step 4: Confirmation */}
+                    {formStep === 4 && (
+                      <div className="space-y-6">
+                        <h4 className="text-sm font-bold text-foreground border-l-4 border-[#2563eb] pl-3">
+                          Récapitulatif
+                        </h4>
+                        <div className="rounded-2xl border border-border bg-muted/20 p-6 space-y-4">
+                          <div className="flex items-start gap-4">
+                            {newOffer.images.length > 0 ? (
+                              <img
+                                src={`${process.env.NEXT_PUBLIC_API_URL}${newOffer.images[bannerIndex] ?? newOffer.images[0]}`}
+                                alt="Bannière"
+                                className="h-20 w-20 rounded-xl object-cover border border-border shrink-0"
+                              />
+                            ) : (
+                              <div className="h-20 w-20 rounded-xl border border-border bg-muted flex items-center justify-center shrink-0">
+                                <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="min-w-0 space-y-1">
+                              <p className="font-bold text-foreground truncate">
+                                {newOffer.title || <span className="text-muted-foreground italic">Sans titre</span>}
+                              </p>
+                              <p className="text-xs text-muted-foreground capitalize">{newOffer.type}</p>
+                              {newOffer.location && (
+                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" /> {newOffer.location}
+                                </p>
+                              )}
+                            </div>
+                            <div className="ml-auto text-right shrink-0">
+                              <p className="text-lg font-black text-[#2563eb]">
+                                {newOffer.price || "—"} {newOffer.currency}
+                              </p>
+                            </div>
+                          </div>
+
+                          {newOffer.description && (
+                            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 border-t border-border pt-4">
+                              {newOffer.description}
+                            </p>
+                          )}
+
+                          <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+                            <span className="text-xs bg-muted px-2 py-1 rounded-lg font-semibold">
+                              {newOffer.images.length} image{newOffer.images.length !== 1 ? "s" : ""}
+                            </span>
+                            {newOffer.video && (
+                              <span className="text-xs bg-muted px-2 py-1 rounded-lg font-semibold">
+                                1 vidéo
+                              </span>
+                            )}
+                            {newOffer.images.length > 0 && (
+                              <span className="text-xs bg-[#2563eb]/10 text-[#2563eb] px-2 py-1 rounded-lg font-semibold">
+                                Bannière: Image {bannerIndex + 1}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sticky Footer Navigation */}
+                    <div className="flex gap-3 pt-6 mt-6 border-t border-border sticky bottom-0 bg-white pb-2">
+                      {formStep > 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => setFormStep((s) => s - 1)}
+                          className="flex-1 rounded-xl border border-border py-3.5 text-sm font-bold hover:bg-muted transition-all flex items-center justify-center gap-2"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Retour
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setShowOfferModal(false)}
+                          className="flex-1 rounded-xl border border-border py-3.5 text-sm font-bold hover:bg-muted transition-all"
+                        >
+                          Annuler
+                        </button>
+                      )}
+
+                      {formStep < 4 ? (
+                        <button
+                          type="button"
+                          onClick={() => setFormStep((s) => s + 1)}
+                          className="flex-[2] rounded-xl bg-[#2563eb] py-3.5 text-sm font-bold text-white hover:bg-[#1d4ed8] shadow-lg shadow-[#2563eb]/20 transition-all flex items-center justify-center gap-2"
+                        >
+                          Continuer
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      ) : (
+                        <button
+                          type="submit"
+                          disabled={isLoading || isUploading}
+                          className="flex-[2] rounded-xl bg-[#2563eb] py-3.5 text-sm font-bold text-white hover:bg-[#1d4ed8] shadow-lg shadow-[#2563eb]/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                          {isLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Check className="h-4 w-4" />
+                          )}
+                          Publier l'offre
+                        </button>
+                      )}
                     </div>
                   </form>
                 </div>
